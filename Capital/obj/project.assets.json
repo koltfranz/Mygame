@@ -8,24 +8,19 @@
     "net10.0": []
   },
   "packageFolders": {
-    "C:\\Users\\koltf\\.nuget\\packages\\": {},
-    "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {}
+    "C:\\Users\\koltf\\.nuget\\packages\\": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "D:\\code\\Mygame\\Mygame\\Capital\\Capital.csproj",
+      "projectUniqueName": "d:\\code\\Mygame\\Capital\\Capital.csproj",
       "projectName": "Capital",
-      "projectPath": "D:\\code\\Mygame\\Mygame\\Capital\\Capital.csproj",
+      "projectPath": "d:\\code\\Mygame\\Capital\\Capital.csproj",
       "packagesPath": "C:\\Users\\koltf\\.nuget\\packages\\",
-      "outputPath": "D:\\code\\Mygame\\Mygame\\Capital\\obj\\",
+      "outputPath": "d:\\code\\Mygame\\Capital\\obj\\",
       "projectStyle": "PackageReference",
-      "fallbackFolders": [
-        "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
-      ],
       "configFilePaths": [
         "C:\\Users\\koltf\\AppData\\Roaming\\NuGet\\NuGet.Config",
-        "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
         "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
       ],
       "originalTargetFrameworks": [
