@@ -17,10 +17,10 @@ public enum LaborTimeUnit
 }
 
 /// <summary>
-/// 劳动时间结构体（不可变）
+/// 劳动时间结构体
 /// 价值量由劳动时间决定，这是政治经济学的基本原理
 /// </summary>
-public readonly struct LaborTime
+public  struct LaborTime
 {
     /// <summary>小时数</summary>
     public double Hours { get; }
