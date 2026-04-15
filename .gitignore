@@ -1,6 +1,67 @@
-﻿################################################################################
+################################################################################
 # 此 .gitignore 文件已由 Microsoft(R) Visual Studio 自动创建。
 ################################################################################
 
+# 用户特定文件
 /.vs
-/Mygame/.vs/Mygame
+/.vscode
+/.idea
+
+# 构建结果
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+
+# .NET 通用
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.rsuser
+*.userprefs
+*~
+
+# NuGet
+*.nupkg
+*.snupkg
+**/[Pp]ackages/*
+!**/[Pp]ackages/build/
+
+# MSBuild
+*.log
+msbuild.log
+msbuild.binlog
+*.binlog
+
+# Visual Studio
+.vs/
+*.suo
+*.user
+*.cache
+
+# NuGet Packages
+*.nupkg
+packages/
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# Click-Once
+publish/
+
+# Miscellaneous
+*.app
+*.local
+TempPE/
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# User-specific files
+*.rsuser
+*.userosscache
+
+# Reset folders
+[Dd]ebug/
+[Rl]elease/
