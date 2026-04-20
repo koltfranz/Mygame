@@ -1,0 +1,24 @@
+# CapitalSimulator - Marxist Economic Simulation Framework
+
+# Core ABM Framework
+mesa>=2.0
+networkx>=3.0
+
+# Numerical Computing
+numpy>=1.24
+pandas>=2.0
+
+# Visualization
+matplotlib>=3.7
+plotly>=5.14
+dash>=2.14
+
+# Data Persistence
+sqlalchemy
+sqlite
+
+# Performance (optional)
+# numba
+
+# Testing
+pytest
