@@ -8,10 +8,10 @@ from mesa import Model
 from mesa.space import ContinuousSpace
 import networkx as nx
 
-from src.model.agents import Forager, TribeMember, Farmer, Slave, SlaveOwner, Serf, Lord, Worker, Capitalist
+from src.model.agents import Forager, TribeMember, Farmer, Slave, SlaveOwner, Serf, Lord, Worker, Capitalist, Human
 from src.model.relations import SocialRelationGraph, RelationTypes
 from src.model.resources import Landscape
-from src.model.mode_of_production import ModeOfProduction, TransitionEngine
+from src.model.social_stage import SocialStage, TransitionEngine
 from src.analysis.data_collector import DataCollector
 from src.engine.reproduction import ReproductionEngine
 
@@ -23,7 +23,7 @@ class CapitalModel(Model):
     Implements historical materialist simulation with:
     - Four-state matter machine
     - Social relation graph (no "human nature" behavioral assumptions)
-    - Mode of production transitions
+    - Social stage transitions (塞维斯-弗里德框架)
     """
 
     def __init__(self,
@@ -44,8 +44,8 @@ class CapitalModel(Model):
         # Landscape
         self.landscape = Landscape(width, height, num_cells_x=20, num_cells_y=20)
 
-        # Mode of production and transition engine
-        self.mode_of_production = ModeOfProduction.PRIMITIVE_COMMUNAL
+        # Social stage and transition engine
+        self.social_stage = SocialStage.PRIMITIVE_HORDE
         self.transition_engine = TransitionEngine()
 
         # Reproduction engine (for crisis detection)
@@ -125,11 +125,12 @@ class CapitalModel(Model):
 
     def step(self):
         """模型步进"""
-        # 1. Evaluate mode of production transition
-        new_mode = self.transition_engine.evaluate_transition(self)
-        if new_mode != self.mode_of_production:
-            self.mode_of_production = new_mode
-            self._on_mode_transition(new_mode)
+        # 1. Evaluate social stage transition
+        new_stage = self.transition_engine.evaluate(self)
+        if new_stage != self.social_stage:
+            old_stage = self.social_stage
+            self.social_stage = new_stage
+            self._on_stage_transition(old_stage, new_stage)
 
         # 2. All agents act
         for agent in list(self.agents):
@@ -144,17 +145,17 @@ class CapitalModel(Model):
         # 5. Collect data
         self.data_collector.collect()
 
-    def _on_mode_transition(self, new_mode: ModeOfProduction):
-        """模式转换时的处理"""
-        print(f"\n*** Mode of Production Transition: {new_mode.value} ***\n")
+    def _on_stage_transition(self, old_stage: SocialStage, new_stage: SocialStage):
+        """阶段转换时的处理"""
+        print(f"\n*** Social Stage Transition: {old_stage.value} -> {new_stage.value} ***\n")
 
-        if new_mode == ModeOfProduction.SLAVE_SOCIETY:
+        if new_stage == SocialStage.SLAVERY_STATE:
             self._transition_to_slave_society()
-        elif new_mode == ModeOfProduction.FEUDALISM:
+        elif new_stage == SocialStage.FEUDAL_STATE:
             self._transition_to_feudalism()
 
     def _transition_to_slave_society(self):
-        """转换到奴隶社会"""
+        """转换到奴隶社会 SLAVERY_STATE"""
         from src.model.agents import Slave, SlaveOwner
 
         # Create slave owners and slaves
@@ -194,7 +195,7 @@ class CapitalModel(Model):
             )
 
     def _transition_to_feudalism(self):
-        """转换到封建社会"""
+        """转换到封建社会 FEUDAL_STATE"""
         from src.model.agents import Serf, Lord
 
         # Convert some existing agents to serfs and create lords
@@ -234,6 +235,9 @@ class CapitalModel(Model):
                     lord_idx = i % len(lords)
                     lord = lords[lord_idx]
                     lord.serfs_controlled.append(serf.unique_id)
+
+                    # 设置 serf 的 lord_id
+                    serf.lord_id = lord.unique_id
 
                     # Create feudal rent relation
                     self.social_graph.add_edge(

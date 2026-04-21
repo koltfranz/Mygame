@@ -1,7 +1,31 @@
 # CapitalSimulator 项目状态
 
-**最后更新**: 2026-04-20
-**版本**: v0.3 (M1-M3 完成)
+**最后更新**: 2026-04-21
+**版本**: v0.6 (基于开发大纲 v10.2)
+
+## 框架升级 (v10.2)
+
+### 社会阶段框架 (塞维斯-弗里德框架)
+- [x] SocialStage 枚举 (10个阶段)
+- [x] TransitionEngine 转型引擎
+- [x] 关系边类型扩展 (12种)
+
+### 社会阶段枚举
+| 阶段 | 人口规模 | 核心关系边 |
+|------|----------|-----------|
+| PRIMITIVE_HORDE | 10-30 | 无 |
+| BAND | 20-50 | KinshipEdge |
+| TRIBE | 100-500 | ClanEdge |
+| TRIBAL_CONFEDERACY | 500-2000 | MilitaryAllianceEdge |
+| CHIEFDOM | 2000-10000 | TributaryEdge |
+| EARLY_STATE | 10000+ | ResidenceEdge |
+| SLAVERY_STATE | 可变 | EnslavementEdge |
+| FEUDAL_STATE | 可变 | FeudalRentEdge |
+| CAPITALIST_STATE | 可变 | WageContractEdge |
+| SOCIALIST_STATE | 可变 | PlanningEdge |
+
+### 关系边类型 (12种)
+Kinship, Clan, Barter, Tributary, MilitaryService, Residence, Enslavement, FeudalRent, WageContract, Training, ColonialExtraction, Planning
 
 ## 已完成里程碑
 
@@ -19,7 +43,7 @@
 - [x] SNLTCalculator 劳动价值计算
 - [x] DepreciationEngine 生产资料磨损
 - [x] Farmer Agent
-- [x] ModeOfProduction 状态机
+- [x] SocialStage 状态机
 
 ### M3: 价值形式与危机 ✓
 - [x] ValueFormRouter 价值形式路由
@@ -31,6 +55,21 @@
 - [x] 军事模块 (Army, DefenseIndustry, WarEvent)
 - [x] 人口模块 (Demography, Migration)
 - [x] 可视化 (Plotly, Dash)
+
+### M4: 奴隶社会模块 ✓
+- [x] Slave/SlaveOwner Agent 完善
+- [x] EnslavementEdge 边类型
+- [x] 奴隶劳动产出剥夺机制
+- [x] 抵抗机制 (resistance_level)
+- [x] 系统性提取逻辑
+- [x] M4 测试用例 (12 tests)
+
+### M5: 封建社会模块 ✓
+- [x] Serf/Lord Agent 完善
+- [x] FeudalRentEdge 边类型
+- [x] 地租支付机制
+- [x] 领主清理死亡农奴
+- [x] M5 测试用例 (12 tests)
 
 ## 项目结构
 
@@ -78,16 +117,6 @@ src/
 
 ## 待完成里程碑
 
-### M4: 奴隶社会模块 (规划中)
-- Slave/SlaveOwner Agent完善
-- EnslavementRelation边类型
-- 奴隶劳动产出剥夺机制
-
-### M5: 封建社会模块 (规划中)
-- Serf/Lord Agent
-- FeudalRentRelation边类型
-- 地租形式演化
-
 ### M6-M7: 资本主义模块 (规划中)
 - Worker/Capitalist Agent
 - WageContractRelation边类型
@@ -105,8 +134,10 @@ src/
 
 ```
 tests/
-├── test_ontology.py      ✓ 物品状态机测试
-└── test_marxist_laws.py ✓ 马克思主义红线测试 (6/6 通过)
+├── test_ontology.py        ✓ 物品状态机测试 (11/11 通过)
+├── test_marxist_laws.py    ✓ 马克思主义红线测试 (6/6 通过)
+├── test_slave_society.py   ✓ 奴隶社会模块测试 (12/12 通过)
+└── test_feudal_society.py  ✓ 封建社会模块测试 (12/12 通过)
 ```
 
 ## 运行命令

@@ -75,7 +75,10 @@ class Matter:
         if self.state == MatterState.STATE_USELESS:
             return False
         if self.state == MatterState.STATE_PURE_USE_VALUE:
-            # 自然界的直接赐予，无需劳动
+            # 自然界的直接赐予，无需劳动 - 检查 tags
+            for tag in self.physical_props.get("tags", []):
+                if tag.value == need_type or tag.value == "edible":
+                    return True
             return need_type in self.physical_props.get("satisfies", [])
 
         # For products and commodities, check functional tags
@@ -109,7 +112,6 @@ class Matter:
         if self.state == MatterState.STATE_COMMODITY and self.exchange_status == "Pending":
             # Emit event for SNLT calculator to remove from pending pool
             # 幽灵比例被还原为虚无
-            from src.utils.event_bus import EventBus
             EventBus.emit("unrealized_commodity_value_loss", self)
 
         self.state = MatterState.STATE_USELESS
@@ -136,13 +138,13 @@ class Matter:
         if matter.state == MatterState.STATE_USELESS:
             return "SECTOR_II"  # Default
 
-        tags = matter.physical_props.get("tags", [])
+        tag_values = [t.value for t in matter.physical_props.get("tags", [])]
 
-        if ItemTags.MONEY_COMMODITY.value in tags:
+        if ItemTags.MONEY_COMMODITY.value in tag_values:
             return "SECTOR_MONEY"
-        if ItemTags.LOCATION_CHANGE.value in tags:
+        if ItemTags.LOCATION_CHANGE.value in tag_values:
             return "SECTOR_TRANSPORT"
-        if ItemTags.TOOL.value in tags or ItemTags.RAW_MATERIAL.value in tags:
+        if ItemTags.TOOL.value in tag_values or ItemTags.RAW_MATERIAL.value in tag_values:
             return "SECTOR_I"
         return "SECTOR_II"
 

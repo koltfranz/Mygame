@@ -11,6 +11,7 @@ import random
 import networkx as nx
 
 from src.model.ontology import Matter, MatterState, ItemTags
+from src.model.relations import RelationTypes
 from src.engine.production import ProductionSystem
 from src.engine.labor_value import SNLTCalculator
 
@@ -97,6 +98,11 @@ class Forager(Human):
 
 class TribeMember(Human):
     """原始社会中晚期部落成员 - 可从事生产活动"""
+
+    def __init__(self, model):
+        super().__init__(model)
+        self.skill_type = 'crafting'  # 部落成员有基本 crafts 技能
+        self.skill_level = 1.2  # 比 forager 稍高
 
     def step(self, model):
         """部落成员的行为"""
@@ -226,35 +232,41 @@ class Slave(Human):
 
     def step(self, model):
         """奴隶的行为 - 被迫劳动"""
-        # 恢复有限劳动能力
+        # 恢复有限劳动能力（奴隶营养不良，恢复慢）
         self.labor_power_capacity = min(1.0, self.labor_power_capacity + 0.1)
 
         # 奴隶被迫劳动
         self._perform_forced_labor(model)
 
+        # 抵抗增加（当生存资料极低时）- 在 clamp 之前检查
+        if self.subsistence_satisfaction < 0.3:
+            self.resistance_level = min(1.0, self.resistance_level + 0.05)
+
         # 只能获得极低限度的生存资料
         if self.subsistence_satisfaction < 0.4:
             self.subsistence_satisfaction = 0.4
-
-        # 抵抗增加
-        if self.subsistence_satisfaction < 0.3:
-            self.resistance_level = min(1.0, self.resistance_level + 0.05)
 
         # 检查是否死亡
         if self.subsistence_satisfaction <= 0:
             model.remove_agent(self)
 
     def _perform_forced_labor(self, model):
-        """被迫劳动 - 产出被剥夺"""
+        """被迫劳动 - 产出被剥夺
+
+        抵抗程度降低实际劳动产出。
+        """
         if self.labor_power_capacity > 0.2:
-            labor_output = self.labor_power_capacity * 0.8
+            # 抵抗降低实际劳动产出
+            effective_labor = self.labor_power_capacity * (1.0 - self.resistance_level * 0.5)
+            labor_output = effective_labor * 0.8
             self.forced_labor_done += labor_output
 
-            # 创建产品但立即被剥夺
+            # 创建产品
             if hasattr(self, 'production') and self.production:
                 product = self.production.produce(self, 'craft_tool', model)
                 if product:
-                    pass  # 产品被奴隶主占有 (由SlaveOwner的step处理)
+                    # 产品加入奴隶库存，等待被剥夺
+                    self.add_commodity(product)
 
 
 class SlaveOwner(Human):
@@ -273,42 +285,44 @@ class SlaveOwner(Human):
         self._extract_slave_surplus(model)
 
         # 消费
-        self._consume_surplus()
+        self._consume_surplus(model)
 
     def _extract_slave_surplus(self, model):
-        """榨取奴隶剩余"""
+        """榨取奴隶剩余
+
+        系统性地提取奴隶的产品和劳动成果。
+        extraction_rate 决定提取比例。
+        """
         for slave_id in self.slaves_owned[:]:
             slave = model.get_agent(slave_id)
             if slave and isinstance(slave, Slave):
-                # 占有奴隶的产品
-                for matter in slave.commodity_inventory[:]:
-                    if model.random.random() < self.extraction_rate:
-                        slave.commodity_inventory.remove(matter)
-                        self.commodity_inventory.append(matter)
+                # 占有奴隶的产品（系统性提取，至少提取1个如果存在）
+                if slave.commodity_inventory:
+                    extracted_count = max(1, int(len(slave.commodity_inventory) * self.extraction_rate))
+                    for i in range(extracted_count):
+                        if slave.commodity_inventory:
+                            matter = slave.commodity_inventory.pop(0)
+                            self.commodity_inventory.append(matter)
 
-                # 奴隶被迫劳动的产品也在此被占有
+                # 奴隶被迫劳动的价值等价物
                 if slave.forced_labor_done > 0:
-                    # 创建等价物代表奴隶劳动
                     extracted_value = slave.forced_labor_done * self.extraction_rate
-                    slave.forced_labor_done = 0
+                    # 创建价值等价物
+                    value_equivalent = Matter()
+                    value_equivalent.state = MatterState.STATE_COMMODITY
+                    value_equivalent.physical_props = {
+                        'name': 'extracted_labor',
+                        'tags': [ItemTags.RAW_MATERIAL],
+                        'extracted_value': extracted_value
+                    }
+                    value_equivalent.individual_labor_embodied = extracted_value
+                    self.add_commodity(value_equivalent)
+                    # 剩余部分返还给奴隶（极少量）
+                    slave.forced_labor_done *= (1.0 - self.extraction_rate)
 
-    def _consume_surplus(self):
+    def _consume_surplus(self, model):
         """消费剩余"""
-        for matter in self.commodity_inventory[:]:
-            if self.consume_matter(matter):
-                self.commodity_inventory.remove(matter)
-                break
-
-        # 剥削奴隶劳动
-        for slave_id in self.slaves_owned[:]:
-            slave = model.get_agent(slave_id)
-            if slave and isinstance(slave, Slave):
-                # 奴隶产出归奴隶主
-                for matter in slave.commodity_inventory[:]:
-                    slave.commodity_inventory.remove(matter)
-                    self.commodity_inventory.append(matter)
-
-        # 消费
+        # 首先消费现有商品
         for matter in self.commodity_inventory[:]:
             if self.consume_matter(matter):
                 self.commodity_inventory.remove(matter)
@@ -316,15 +330,21 @@ class SlaveOwner(Human):
 
 
 class Serf(Human):
-    """封建社会的农奴"""
+    """封建社会的农奴
+
+    农奴与领主建立封建地租关系，被迫上缴部分产出。
+    阶级位置由 SocialRelationGraph 的 FeudalRent 边决定。
+    """
 
     def __init__(self, model):
         super().__init__(model)
         self.skill_type = 'farming'
         self.rent_owed = 0.0
+        self.lord_id: int = None  # 所属领主的 ID
 
     def step(self, model):
         """农奴的行为"""
+        # 劳动能力恢复
         self.labor_power_capacity = min(1.0, self.labor_power_capacity + 0.15)
 
         # 耕种自己的小块土地
@@ -334,30 +354,59 @@ class Serf(Human):
         # 上缴地租
         self._pay_rent(model)
 
+        # 消耗生存资料
         self.subsistence_satisfaction = max(0.0, self.subsistence_satisfaction - 0.03)
 
         if self.subsistence_satisfaction <= 0:
             model.remove_agent(self)
 
     def _pay_rent(self, model):
-        """支付地租"""
-        # 将部分产出交给领主
-        goods_to_rent = [m for m in self.commodity_inventory[:] if m.state == MatterState.STATE_PRODUCT]
+        """支付地租
+
+        农奴将部分产出（25%）作为地租交给领主。
+        领主由 feudal rent 边确定。
+        """
+        if not self.lord_id:
+            # 尝试从社会关系图中找到领主
+            self.lord_id = self._find_lord_from_graph(model)
+
+        if not self.lord_id:
+            return
+
+        lord = model.get_agent(self.lord_id)
+        if not lord or not isinstance(lord, Lord):
+            return
+
+        # 找出可作为地租的产品
+        goods_to_rent = [m for m in self.commodity_inventory[:]
+                        if m.state in (MatterState.STATE_PRODUCT, MatterState.STATE_COMMODITY)]
+
         if goods_to_rent:
-            rent_quantity = len(goods_to_rent) // 4  # 25% 作为地租
+            # 25% 作为地租
+            rent_quantity = max(1, len(goods_to_rent) // 4)
             for i in range(rent_quantity):
                 if goods_to_rent[i] in self.commodity_inventory:
                     self.commodity_inventory.remove(goods_to_rent[i])
-                    # 找到领主并交付
-                    if hasattr(model, 'lords'):
-                        for lord in model.lords:
-                            if lord.unique_id in self.social_graph.graph:
-                                lord.add_commodity(goods_to_rent[i])
-                                break
+                    lord.add_commodity(goods_to_rent[i])
+
+    def _find_lord_from_graph(self, model) -> int:
+        """从社会关系图中找到领主 ID"""
+        if self.unique_id not in model.social_graph.graph:
+            return None
+
+        # 查找 FeudalRent 出边指向的领主
+        for _, target_id, data in model.social_graph.graph.out_edges(self.unique_id, data=True):
+            if data.get('relation_type') == RelationTypes.FEUDAL_RENT.value:
+                return target_id
+        return None
 
 
 class Lord(Human):
-    """封建社会的领主"""
+    """封建社会的领主
+
+    领主占有土地，通过封建地租关系榨取农奴的剩余劳动。
+    阶级位置由 SocialRelationGraph 的 FeudalRent 边决定。
+    """
 
     def __init__(self, model):
         super().__init__(model)
@@ -367,13 +416,27 @@ class Lord(Human):
 
     def step(self, model):
         """领主的行为"""
+        # 恢复劳动能力
         self.labor_power_capacity = min(1.0, self.labor_power_capacity + 0.1)
 
         # 消费从农奴那里获得的地租
+        self._consume_rent()
+
+        # 清理已死亡的农奴
+        self._cleanup_dead_serfs(model)
+
+    def _consume_rent(self):
+        """消费地租"""
         for matter in self.commodity_inventory[:]:
             if self.consume_matter(matter):
                 self.commodity_inventory.remove(matter)
                 break
+
+    def _cleanup_dead_serfs(self, model):
+        """清理已死亡的农奴"""
+        for serf_id in self.serfs_controlled[:]:
+            if not model.get_agent(serf_id):
+                self.serfs_controlled.remove(serf_id)
 
 
 class Worker(Human):

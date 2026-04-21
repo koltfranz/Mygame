@@ -14,7 +14,21 @@
       "Bash(python -c \"from mesa.time import Schedule; help\\(Schedule.__init__\\)\")",
       "Bash(python -c ' *)",
       "Bash(python -m pytest tests/test_marxist_laws.py -v)",
-      "Bash(python -m pytest tests/ -v)"
+      "Bash(python -m pytest tests/ -v)",
+      "Bash(python -c \"from src.model.ontology import ItemTags; print\\(ItemTags.EDIBLE.value\\)\")",
+      "Bash(python -m pytest tests/test_slave_society.py -v)",
+      "Bash(python -m pytest tests/test_feudal_society.py -v)",
+      "Bash(python -m pytest tests/test_slave_society.py tests/test_feudal_society.py -v)",
+      "Bash(python -m pip install mesa networkx numpy matplotlib -q)",
+      "Bash(python -c \"import networkx; print\\('networkx OK'\\)\")",
+      "Bash(python src/run_interactive.py --steps 20 --auto)",
+      "Bash(python src/run_interactive.py --steps 30 --auto)",
+      "Bash(python -m pytest tests/ -v --tb=short)",
+      "Bash(python src/run_interactive.py --steps 10)",
+      "Bash(python -m pytest tests/test_social_stage.py -v)",
+      "Bash(python src/run.py --steps 300)",
+      "Bash(python src/run.py --steps 200)",
+      "Bash(python src/run.py --steps 100)"
     ]
   }
 }

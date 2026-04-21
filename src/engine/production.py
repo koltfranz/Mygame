@@ -35,29 +35,29 @@ class ProductionSystem:
     # Default recipes for primitive agriculture and tools
     RECIPES = {
         'grain_grow': ProductionRecipe(
-            inputs=[('seeds', 1.0)],
+            inputs=[],  # 无需种子投入，从自然界采集
             labor_time=4.0,
             skill_required=1.0,
-            skill_type='farming',
-            tools_required=['hand_tool'],
+            skill_type=None,  # 无需特定技能
+            tools_required=[],
             output='grain',
             output_quantity=3.0
         ),
         'craft_tool': ProductionRecipe(
             inputs=[('stone', 2.0), ('wood', 1.0)],
             labor_time=3.0,
-            skill_required=1.5,
-            skill_type='crafting',
-            tools_required=['hand_tool'],
+            skill_required=1.0,
+            skill_type=None,  # 无需特定技能
+            tools_required=[],
             output='hand_tool',
             output_quantity=1.0
         ),
         'craft_spear': ProductionRecipe(
             inputs=[('wood', 1.0), ('stone', 1.0)],
             labor_time=2.5,
-            skill_required=1.2,
-            skill_type='crafting',
-            tools_required=['hand_tool'],
+            skill_required=1.0,
+            skill_type=None,
+            tools_required=[],
             output='weapon',
             output_quantity=1.0
         ),
@@ -65,8 +65,8 @@ class ProductionSystem:
             inputs=[('wood', 5.0), ('stone', 3.0)],
             labor_time=8.0,
             skill_required=1.0,
-            skill_type='building',
-            tools_required=['hand_tool'],
+            skill_type=None,
+            tools_required=[],
             output='shelter',
             output_quantity=1.0
         ),
@@ -117,8 +117,8 @@ class ProductionSystem:
         if recipe.skill_type and agent.skill_type != recipe.skill_type:
             return False, f"Wrong skill type: {agent.skill_type} != {recipe.skill_type}"
 
-        # Check labor capacity
-        if agent.labor_power_capacity < recipe.labor_time:
+        # Check labor capacity (normalized: labor_time is hours, capacity is 0-1 per day)
+        if agent.labor_power_capacity < recipe.labor_time / 24.0:
             return False, f"Insufficient labor capacity"
 
         # Check for tools (if agent has any tool in inventory)

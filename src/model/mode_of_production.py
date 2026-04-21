@@ -93,16 +93,40 @@ class TransitionEngine:
         return (total_produced - total_consumed) / total_consumed
 
     def _calculate_stratification(self, model) -> float:
-        """计算社会分化度"""
+        """计算社会分化度
+
+        综合考虑:
+        1. 生存资料满足率差异
+        2. 商品库存差异
+        3. 技能水平差异
+        """
         if len(model._agent_lookup) < 2:
             return 0.0
 
-        subsistence_levels = [
-            a.subsistence_satisfaction for a in model._agent_lookup.values()
-        ]
-        avg = sum(subsistence_levels) / len(subsistence_levels)
-        variance = sum((x - avg) ** 2 for x in subsistence_levels) / len(subsistence_levels)
-        return min(1.0, variance)
+        agents = list(model._agent_lookup.values())
+
+        # 1. 生存资料满足率方差
+        subsistence_levels = [a.subsistence_satisfaction for a in agents]
+        subs_avg = sum(subsistence_levels) / len(subsistence_levels)
+        subs_variance = sum((x - subs_avg) ** 2 for x in subsistence_levels) / len(subsistence_levels)
+
+        # 2. 库存差异（基尼系数风格）
+        inventories = [len(a.commodity_inventory) for a in agents]
+        inv_avg = sum(inventories) / len(inventories) if inventories else 0
+        if inv_avg > 0:
+            inv_variance = sum((x - inv_avg) ** 2 for x in inventories) / len(inventories)
+            inv_variance = min(1.0, inv_variance / (inv_avg ** 2 + 0.1))  # 标准化
+        else:
+            inv_variance = 0
+
+        # 3. 技能水平差异
+        skill_levels = [a.skill_level for a in agents]
+        skill_avg = sum(skill_levels) / len(skill_levels)
+        skill_variance = sum((x - skill_avg) ** 2 for x in skill_levels) / len(skill_levels)
+
+        # 综合分化度
+        combined = subs_variance * 0.5 + inv_variance * 0.3 + skill_variance * 0.2
+        return min(1.0, combined * 10)  # 放大差异
 
     def _calculate_density(self, model) -> float:
         """计算人口密度"""
