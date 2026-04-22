@@ -28,7 +28,18 @@
       "Bash(python -m pytest tests/test_social_stage.py -v)",
       "Bash(python src/run.py --steps 300)",
       "Bash(python src/run.py --steps 200)",
-      "Bash(python src/run.py --steps 100)"
+      "Bash(python src/run.py --steps 100)",
+      "Bash(python src/run.py --steps 40)",
+      "Bash(python src/run.py --steps 500)",
+      "Bash(timeout 5 python src/run.py --demo --interval 50)",
+      "Bash(python src/run.py --steps 600)",
+      "Bash(python src/run.py --steps 800)",
+      "Bash(python src/run.py --steps 700)",
+      "Bash(python src/run.py --demo)",
+      "Bash(timeout 30 python src/run.py --demo --interval 50)",
+      "Bash(timeout 60 python src/run.py --demo --interval 100)",
+      "Bash(timeout 90 python src/run.py --demo --interval 150)",
+      "Bash(timeout 90 python src/run.py --demo --interval 200)"
     ]
   }
 }

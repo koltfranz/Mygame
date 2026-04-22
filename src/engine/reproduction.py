@@ -5,6 +5,7 @@ Handles:
 - Simple reproduction (简单再生产)
 - Expanded reproduction (扩大再生产)
 - Crisis detection (危机检测)
+- Production price transformation (生产价格转化)
 """
 
 from typing import Dict, List, Tuple
@@ -32,6 +33,10 @@ class ReproductionEngine:
     I(v+m) = II(c) for simple reproduction
     I(v+m) > II(c) for expanded reproduction
     I(v+m) < II(c) signals crisis
+
+    Also handles production price transformation (利润率平均化):
+    - 价值 -> 生产价格
+    - 各部门利润率 -> 平均利润率
     """
 
     def __init__(self):
@@ -40,20 +45,120 @@ class ReproductionEngine:
             'organic_composition': 0.0,
             'department_imbalance': 0.0,
         }
+        self.average_profit_rate: float = 0.0
+        self.production_price_enabled: bool = False
 
     def calculate_reproduction_schema(self, model) -> ReproductionSchema:
-        """计算再生产图式"""
-        # Placeholder implementation
-        # In full implementation, would aggregate from all agents and production
+        """计算再生产图式 - 基于实际数据"""
+        # 汇总各部类的资本
+        i_constant = 0.0  # 生产资料部类 (c)
+        i_variable = 0.0  # 生产资料部类 (v)
+        i_surplus = 0.0   # 生产资料部类 (s)
+
+        ii_constant = 0.0  # 消费资料部类 (c)
+        ii_variable = 0.0  # 消费资料部类 (v)
+        ii_surplus = 0.0   # 消费资料部类 (s)
+
+        for agent in model._agent_lookup.values():
+            # 判断部类
+            if hasattr(agent, 'machines_owned') and agent.machines_owned:
+                # 拥有生产资料的属于第一部类
+                i_constant += self._get_constant_capital(agent)
+                i_variable += self._get_variable_capital(agent)
+                i_surplus += self._get_surplus_value(agent)
+            else:
+                # 其他属于第二部类
+                ii_constant += self._get_constant_capital(agent)
+                ii_variable += self._get_variable_capital(agent)
+                ii_surplus += self._get_surplus_value(agent)
 
         return ReproductionSchema(
-            department_i_constant_capital=100.0,
-            department_i_variable_capital=50.0,
-            department_i_surplus_value=50.0,
-            department_ii_constant_capital=80.0,
-            department_ii_variable_capital=40.0,
-            department_ii_surplus_value=20.0,
+            department_i_constant_capital=i_constant,
+            department_i_variable_capital=i_variable,
+            department_i_surplus_value=i_surplus,
+            department_ii_constant_capital=ii_constant,
+            department_ii_variable_capital=ii_variable,
+            department_ii_surplus_value=ii_surplus,
         )
+
+    def _get_constant_capital(self, agent) -> float:
+        """获取某Agent的不变资本"""
+        c = 0.0
+        if hasattr(agent, 'machines_owned'):
+            for machine in agent.machines_owned:
+                if hasattr(machine, 'individual_labor_embodied'):
+                    c += machine.individual_labor_embodied
+        if hasattr(agent, 'commodity_inventory'):
+            for matter in agent.commodity_inventory:
+                if hasattr(matter, 'individual_labor_embodied'):
+                    c += matter.individual_labor_embodied * 0.3
+        return c
+
+    def _get_variable_capital(self, agent) -> float:
+        """获取某Agent的可变资本"""
+        v = 0.0
+        if hasattr(agent, 'value_equivalent_held'):
+            v += agent.value_equivalent_held
+        if hasattr(agent, 'workers_employed'):
+            v += len(agent.workers_employed) * 8.0
+        if hasattr(agent, 'labor_power_capacity'):
+            v += agent.labor_power_capacity * 3.0
+        return v
+
+    def _get_surplus_value(self, agent) -> float:
+        """获取某Agent的剩余价值"""
+        s = 0.0
+        if hasattr(agent, 'capital_stock') and agent.capital_stock > 0:
+            s += agent.capital_stock * 0.2
+        if hasattr(agent, 'serfs_controlled'):
+            s += len(agent.serfs_controlled) * 1.0
+        if hasattr(agent, 'slaves_owned'):
+            s += len(agent.slaves_owned) * 0.5
+        return s
+
+    def calculate_average_profit_rate(self, model) -> float:
+        """计算平均利润率
+
+        公式: p' = 总剩余价值 / (总不变资本 + 总可变资本)
+        """
+        schema = self.calculate_reproduction_schema(model)
+
+        total_c = schema.department_i_constant_capital + schema.department_ii_constant_capital
+        total_v = schema.department_i_variable_capital + schema.department_ii_variable_capital
+        total_s = schema.department_i_surplus_value + schema.department_ii_surplus_value
+
+        total_capital = total_c + total_v
+        if total_capital > 0:
+            self.average_profit_rate = total_s / total_capital
+        else:
+            self.average_profit_rate = 0.0
+
+        return self.average_profit_rate
+
+    def transform_to_production_price(self, value: float, c: float, v: float) -> float:
+        """将价值转化为生产价格
+
+        生产价格 = 成本价格 + 平均利润
+        成本价格 = c + v
+        平均利润 = 成本价格 × 平均利润率
+
+        Args:
+            value: 原始价值 (c + v + s)
+            c: 不变资本
+            v: 可变资本
+        """
+        if not self.production_price_enabled:
+            return value
+
+        cost_price = c + v
+        average_profit = cost_price * self.average_profit_rate
+        production_price = cost_price + average_profit
+
+        return production_price
+
+    def enable_production_price(self, enabled: bool = True):
+        """启用/禁用生产价格转换"""
+        self.production_price_enabled = enabled
 
     def check_balance(self, schema: ReproductionSchema) -> Tuple[bool, str]:
         """
@@ -81,6 +186,9 @@ class ReproductionEngine:
         Crisis cannot be caused by "insufficient demand" -
         only by利润率下降 or再生产比例失衡.
         """
+        # Calculate average profit rate first
+        self.calculate_average_profit_rate(model)
+
         # Calculate rate of surplus value: s/v
         total_surplus = self._calculate_total_surplus(model)
         total_variable = self._calculate_total_variable(model)
@@ -97,8 +205,10 @@ class ReproductionEngine:
         else:
             organic_composition = 0.0
 
-        # Calculate profit rate: s/(c+v)
-        if (total_constant + total_variable) > 0:
+        # Calculate profit rate: s/(c+v) - use average profit rate for capitalist stage
+        if model.social_stage.value == 'capitalist_state':
+            profit_rate = self.average_profit_rate
+        elif (total_constant + total_variable) > 0:
             profit_rate = total_surplus / (total_constant + total_variable)
         else:
             profit_rate = 0.0
@@ -118,15 +228,75 @@ class ReproductionEngine:
         return self.crisis_indicators
 
     def _calculate_total_surplus(self, model) -> float:
-        """计算总剩余价值"""
-        # Sum surplus from all agents
-        # In primitive society, surplus is shared communally
-        return 0.0
+        """计算总剩余价值
+
+        剩余价值 = 劳动者创造的超出劳动力价值的新价值
+        简化计算：基于库存价值和劳动能力消耗估算
+        """
+        total_surplus = 0.0
+
+        for agent in model._agent_lookup.values():
+            # 资本家的库存（部分为剩余价值）
+            if hasattr(agent, 'capital_stock') and agent.capital_stock > 0:
+                total_surplus += agent.capital_stock * 0.3
+
+            # 领主的库存
+            if hasattr(agent, 'serfs_controlled'):
+                surplus_from_rent = len(agent.serfs_controlled) * 2.0
+                total_surplus += surplus_from_rent
+
+            # 奴隶主的剩余价值提取
+            if hasattr(agent, 'slaves_owned'):
+                surplus_from_slaves = len(agent.slaves_owned) * 1.5
+                total_surplus += surplus_from_slaves
+
+            # 工人的工资余额（部分为剩余价值）
+            if hasattr(agent, 'value_equivalent_held') and agent.value_equivalent_held > 10:
+                total_surplus += agent.value_equivalent_held * 0.2
+
+        return total_surplus
 
     def _calculate_total_variable(self, model) -> float:
-        """计算总可变资本"""
-        return 0.0
+        """计算总可变资本 v
+
+        可变资本是用于购买劳动力的资本
+        """
+        total_variable = 0.0
+
+        for agent in model._agent_lookup.values():
+            # 工人的价值等价物持有（工资）
+            if hasattr(agent, 'value_equivalent_held'):
+                total_variable += agent.value_equivalent_held
+
+            # 资本家支付的工资
+            if hasattr(agent, 'workers_employed'):
+                wages = len(agent.workers_employed) * 8.0
+                total_variable += wages
+
+            # 农奴的劳动能力价值（简化）
+            if hasattr(agent, 'labor_power_capacity'):
+                total_variable += agent.labor_power_capacity * 5.0
+
+        return total_variable
 
     def _calculate_total_constant(self, model) -> float:
-        """计算总不变资本"""
-        return 0.0
+        """计算总不变资本 c
+
+        不变资本是生产资料的价值，在生产过程中转移但不创造新价值
+        """
+        total_constant = 0.0
+
+        for agent in model._agent_lookup.values():
+            # 机器价值
+            if hasattr(agent, 'machines_owned'):
+                for machine in agent.machines_owned:
+                    if hasattr(machine, 'individual_labor_embodied'):
+                        total_constant += machine.individual_labor_embodied
+
+            # 库存中的生产工具
+            if hasattr(agent, 'commodity_inventory'):
+                for matter in agent.commodity_inventory:
+                    if hasattr(matter, 'individual_labor_embodied'):
+                        total_constant += matter.individual_labor_embodied * 0.5
+
+        return total_constant

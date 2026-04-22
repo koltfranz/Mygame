@@ -74,6 +74,21 @@ class TransitionEngine:
     def __init__(self):
         self.current_stage = SocialStage.PRIMITIVE_HORDE
         self.transition_indicators: Dict[str, float] = {}
+        # 各阶段最小步数要求（防止过快过渡）
+        # 时间表: 原始群(-100k) -> 部落(-90k) -> 早期国家(-80k) -> 封建(500) -> 资本主义(1800) -> 社会主义(2000)
+        self._min_steps_in_stage: Dict[SocialStage, int] = {
+            SocialStage.PRIMITIVE_HORDE: 50,   # 50步 × 200年 = 10,000年
+            SocialStage.BAND: 100,              # 100步 × 100年 = 10,000年
+            SocialStage.TRIBE: 100,             # 100步 × 100年 = 10,000年
+            SocialStage.TRIBAL_CONFEDERACY: 100,  # 100步 × 100年 = 10,000年
+            SocialStage.CHIEFDOM: 100,          # 100步 × 100年 = 10,000年
+            SocialStage.EARLY_STATE: 101,       # 101步 × 500年 = 50,500年 → 公元500年
+            SocialStage.SLAVERY_STATE: 50,      # 50步 × 100年 = 5,000年
+            SocialStage.FEUDAL_STATE: 260,      # 260步 × 5年 = 1,300年 → 公元1800年
+            SocialStage.CAPITALIST_STATE: 200,  # 200步 × 1月 = 200月 = 16.7年 (但由于强制过渡会延长)
+            SocialStage.SOCIALIST_STATE: 200,   # 200步 × 1月 = 200月 = 16.7年
+        }
+        self._steps_in_current_stage: int = 0
 
     def evaluate(self, model) -> SocialStage:
         """
@@ -83,6 +98,14 @@ class TransitionEngine:
         """
         # 收集当前指标
         metrics = self._collect_metrics(model)
+
+        # 检查是否满足最小步数要求
+        min_steps = self._min_steps_in_stage.get(self.current_stage, 0)
+        self._steps_in_current_stage += 1
+
+        if self._steps_in_current_stage < min_steps:
+            # 未满足最小步数要求，不能转换
+            return self.current_stage
 
         if self.current_stage == SocialStage.PRIMITIVE_HORDE:
             new_stage = self._check_primitive_horde_transition(metrics)
@@ -95,13 +118,33 @@ class TransitionEngine:
         elif self.current_stage == SocialStage.CHIEFDOM:
             new_stage = self._check_chiefdom_transition(metrics)
         elif self.current_stage == SocialStage.EARLY_STATE:
-            new_stage = self._check_early_state_transition(metrics)
+            # 获取边类型统计用于自动判断生产模式
+            edge_counts = {}
+            if hasattr(model, 'social_graph'):
+                edge_counts = model.social_graph.get_edge_count_by_type()
+            new_stage = self._check_early_state_transition(metrics, edge_counts, model)
+        elif self.current_stage == SocialStage.SLAVERY_STATE:
+            edge_counts = {}
+            if hasattr(model, 'social_graph'):
+                edge_counts = model.social_graph.get_edge_count_by_type()
+            new_stage = self._check_slavery_state_transition(metrics, edge_counts, model)
+        elif self.current_stage == SocialStage.FEUDAL_STATE:
+            edge_counts = {}
+            if hasattr(model, 'social_graph'):
+                edge_counts = model.social_graph.get_edge_count_by_type()
+            new_stage = self._check_feudal_state_transition(metrics, edge_counts, model)
+        elif self.current_stage == SocialStage.CAPITALIST_STATE:
+            edge_counts = {}
+            if hasattr(model, 'social_graph'):
+                edge_counts = model.social_graph.get_edge_count_by_type()
+            new_stage = self._check_capitalist_state_transition(metrics, edge_counts, model)
         else:
             new_stage = self.current_stage
 
         # 更新当前阶段
         if new_stage != self.current_stage:
             self.current_stage = new_stage
+            self._steps_in_current_stage = 0  # 重置步数计数器
 
         return new_stage
 
@@ -178,57 +221,318 @@ class TransitionEngine:
         return metrics
 
     def _check_primitive_horde_transition(self, metrics: StageMetrics) -> SocialStage:
-        """原始群 → 游群：火的使用 + 语言能力"""
-        if metrics.fire_use and metrics.language_capacity > 0.5:
-            return SocialStage.BAND
-        if metrics.population >= 30:
-            # 人口超过阈值，自动进入游群
+        """原始群 → 游群：人口积累到一定程度后自动过渡"""
+        # 需要更多人口和一定时间才进入游群
+        if metrics.population >= 40 and metrics.language_capacity > 0.3:
             return SocialStage.BAND
         return SocialStage.PRIMITIVE_HORDE
 
     def _check_band_transition(self, metrics: StageMetrics) -> SocialStage:
-        """游群 → 部落：定居率 > 30% + 植物驯化知识"""
-        if metrics.sedentary_ratio > 0.3 and metrics.plant_knowledge > 0.5:
+        """游群 → 部落：人口积累 + 定居率提升"""
+        # 需要更多人口积累才进入部落
+        if metrics.population >= 60 and metrics.sedentary_ratio > 0.2:
             return SocialStage.TRIBE
-        if metrics.population >= 50 and metrics.plant_knowledge > 0.3:
+        if metrics.population >= 50 and metrics.plant_knowledge > 0.4:
             return SocialStage.TRIBE
         return SocialStage.BAND
 
     def _check_tribe_transition(self, metrics: StageMetrics) -> SocialStage:
-        """部落 → 部落联盟：剩余产品率高 + 社会分化显著"""
-        if metrics.surplus_ratio > 0.5 and metrics.gini_coefficient > 0.3:
+        """部落 → 部落联盟：人口积累 + 剩余产品"""
+        # 需要更多人口积累
+        if metrics.population >= 100 and metrics.surplus_ratio > 0.15:
             return SocialStage.TRIBAL_CONFEDERACY
-        if metrics.population >= 100 and metrics.surplus_ratio > 0.2:
+        if metrics.population >= 80 and metrics.gini_coefficient > 0.25:
             return SocialStage.TRIBAL_CONFEDERACY
         return SocialStage.TRIBE
 
     def _check_confederacy_transition(self, metrics: StageMetrics) -> SocialStage:
-        """部落联盟 → 酋邦：社会分化显著 + 基尼系数 > 0.4"""
-        if metrics.gini_coefficient > 0.4 and metrics.surplus_ratio > 0.3:
+        """部落联盟 → 酋邦：人口积累 + 社会分化"""
+        # 降低条件，只要人口有一定增长就可以转换
+        if metrics.population >= 150 and metrics.gini_coefficient > 0.3:
             return SocialStage.CHIEFDOM
-        if metrics.population >= 100 and metrics.gini_coefficient > 0.3:
+        if metrics.population >= 120 and metrics.surplus_ratio > 0.2:
             return SocialStage.CHIEFDOM
         return SocialStage.TRIBAL_CONFEDERACY
 
     def _check_chiefdom_transition(self, metrics: StageMetrics) -> SocialStage:
-        """酋邦 → 早期国家：地缘关系增加 + 国家能力形成"""
-        if metrics.residence_ratio > 0.3 and metrics.gini_coefficient > 0.5:
+        """酋邦 → 早期国家：人口积累 + 定居率"""
+        if metrics.population >= 100 and metrics.residence_ratio > 0.25:
             return SocialStage.EARLY_STATE
-        if metrics.population >= 100 and metrics.residence_ratio > 0.2:
+        if metrics.population >= 80 and metrics.residence_ratio > 0.4:
             return SocialStage.EARLY_STATE
         return SocialStage.CHIEFDOM
 
-    def _check_early_state_transition(self, metrics: StageMetrics) -> SocialStage:
-        """早期国家 → 后续阶段（基于生产关系）"""
-        # 根据生产关系类型决定后续阶段
-        if hasattr(self, '_production_mode'):
-            if self._production_mode == 'enslavement':
-                return SocialStage.SLAVERY_STATE
-            elif self._production_mode == 'feudal':
+    def _check_early_state_transition(self, metrics: StageMetrics, edge_counts: dict = None,
+                                     model=None) -> SocialStage:
+        """早期国家 → 后续阶段（基于社会关系自动判断）
+
+        早期国家阶段需要持续较长时间(约80,000年)才进入封建社会。
+        时间推进快(500年/步)，所以需要更多步数积累。
+        """
+        if edge_counts is None:
+            return SocialStage.EARLY_STATE
+
+        # 按历史顺序检查（从高到低）
+        if edge_counts.get('planning', 0) > 0:
+            return SocialStage.SOCIALIST_STATE
+        elif edge_counts.get('wage_contract', 0) > 0:
+            return SocialStage.CAPITALIST_STATE
+        elif edge_counts.get('feudal_rent', 0) > 0:
+            return SocialStage.FEUDAL_STATE
+        elif edge_counts.get('enslavement', 0) > 0:
+            return SocialStage.SLAVERY_STATE
+
+        # 如果没有特定边类型，根据社会分化度和人口决定后续阶段
+        # 需要更高的阈值来延长早期国家阶段
+        if model and metrics.gini_coefficient > 0.6 and metrics.population > 100:
+            # 根据剩余生产率决定是奴隶制还是封建制
+            if metrics.surplus_ratio > 0.4:
+                # 高剩余产品率倾向于封建生产方式
+                self._auto_create_feudal_edges(model)
                 return SocialStage.FEUDAL_STATE
-            elif self._production_mode == 'capitalist':
-                return SocialStage.CAPITALIST_STATE
+            else:
+                self._auto_create_slave_edges(model)
+                return SocialStage.SLAVERY_STATE
+
         return SocialStage.EARLY_STATE
+
+    def _auto_create_feudal_edges(self, model):
+        """自动创建封建地租边（用于早期国家阶段触发封建化）"""
+        from src.model.agents import Serf, Lord
+        from src.model.relations import RelationTypes
+
+        existing = list(model._agent_lookup.values())
+        if not existing:
+            return
+
+        # 创建1-3个领主
+        num_lords = min(3, max(1, len(existing) // 30))
+        lords = []
+
+        for i in range(num_lords):
+            lord = Lord(model)
+            pos = (model.random.random() * model.space.width,
+                   model.random.random() * model.space.height)
+            model.space.place_agent(lord, pos)
+            lord.pos = pos
+            model.social_graph.add_agent(lord.unique_id)
+            model._agent_lookup[lord.unique_id] = lord
+            lords.append(lord)
+
+        # 创建农奴并建立封建关系
+        num_serfs = min(20, max(5, len(existing) // 5))
+        for i in range(num_serfs):
+            serf = Serf(model)
+            pos = (model.random.random() * model.space.width,
+                   model.random.random() * model.space.height)
+            model.space.place_agent(serf, pos)
+            serf.pos = pos
+            model.social_graph.add_agent(serf.unique_id)
+            model._agent_lookup[serf.unique_id] = serf
+
+            # 分配给领主
+            lord_idx = i % len(lords)
+            lord = lords[lord_idx]
+            serf.lord_id = lord.unique_id
+            lord.serfs_controlled.append(serf.unique_id)
+
+            # 创建封建地租边
+            model.social_graph.add_edge(
+                serf.unique_id, lord.unique_id,
+                RelationTypes.FEUDAL_RENT,
+                weight=1.0
+            )
+
+    def _auto_create_slave_edges(self, model):
+        """自动创建奴役边（用于早期国家阶段触发奴隶制）"""
+        from src.model.agents import Slave, SlaveOwner
+        from src.model.relations import RelationTypes
+
+        existing = list(model._agent_lookup.values())
+        if not existing:
+            return
+
+        # 创建奴隶主
+        num_owners = min(3, max(1, len(existing) // 40))
+        owners = []
+
+        for i in range(num_owners):
+            owner = SlaveOwner(model)
+            pos = (model.random.random() * model.space.width,
+                   model.random.random() * model.space.height)
+            model.space.place_agent(owner, pos)
+            owner.pos = pos
+            model.social_graph.add_agent(owner.unique_id)
+            model._agent_lookup[owner.unique_id] = owner
+            owners.append(owner)
+
+        # 创建奴隶并建立奴役关系
+        num_slaves = min(15, max(5, len(existing) // 4))
+        for i in range(num_slaves):
+            slave = Slave(model)
+            pos = (model.random.random() * model.space.width,
+                   model.random.random() * model.space.height)
+            model.space.place_agent(slave, pos)
+            slave.pos = pos
+            model.social_graph.add_agent(slave.unique_id)
+            model._agent_lookup[slave.unique_id] = slave
+
+            # 分配给奴隶主
+            owner_idx = i % len(owners)
+            owner = owners[owner_idx]
+            owner.slaves_owned.append(slave.unique_id)
+
+            # 创建奴役边
+            model.social_graph.add_edge(
+                owner.unique_id, slave.unique_id,
+                RelationTypes.ENSLAVEMENT,
+                weight=1.0
+            )
+
+    def _check_slavery_state_transition(self, metrics: StageMetrics, edge_counts: dict = None,
+                                         model=None) -> SocialStage:
+        """奴隶社会阶段转换检查
+
+        奴隶社会可以转变为封建社会（通过隶农制转型）
+        或者在特定条件下直接向资本主义过渡
+        """
+        if edge_counts is None:
+            return SocialStage.SLAVERY_STATE
+
+        # 如果出现计划关系边，说明正在向社会主义过渡
+        if edge_counts.get('planning', 0) > 0:
+            return SocialStage.SOCIALIST_STATE
+
+        # 如果出现雇佣关系边，说明正在向资本主义过渡
+        if edge_counts.get('wage_contract', 0) > 0:
+            return SocialStage.CAPITALIST_STATE
+
+        # 如果封建地租关系出现，可能转向封建社会
+        if edge_counts.get('feudal_rent', 0) > 0:
+            return SocialStage.FEUDAL_STATE
+
+        # 奴隶社会后期，奴隶反抗加剧可能导致向封建制转型
+        if model and metrics.stratification > 0.7 and metrics.surplus_ratio > 0.4:
+            self._auto_create_feudal_edges(model)
+            return SocialStage.FEUDAL_STATE
+
+        return SocialStage.SLAVERY_STATE
+
+    def _check_feudal_state_transition(self, metrics: StageMetrics, edge_counts: dict = None,
+                                        model=None) -> SocialStage:
+        """封建社会阶段转换检查
+
+        封建社会可以转变为资本主义（通过货币地租积累和雇佣关系萌芽）
+        或者转变为社会主义（通过计划关系的出现）
+        """
+        if edge_counts is None:
+            return SocialStage.FEUDAL_STATE
+
+        # 如果出现计划关系边，说明正在向社会主义过渡
+        if edge_counts.get('planning', 0) > 0:
+            return SocialStage.SOCIALIST_STATE
+
+        # 如果出现雇佣关系边，说明正在向资本主义过渡
+        if edge_counts.get('wage_contract', 0) > 0:
+            return SocialStage.CAPITALIST_STATE
+
+        # 封建社会中后期，货币地租积累可能导致资本主义萌芽
+        # 当剩余生产率高且人口达到一定规模时，触发资本主义化
+        if model and metrics.surplus_ratio > 0.5 and metrics.population > 80:
+            self._auto_create_capitalist_edges(model)
+            return SocialStage.CAPITALIST_STATE
+
+        return SocialStage.FEUDAL_STATE
+
+    def _check_capitalist_state_transition(self, metrics: StageMetrics, edge_counts: dict = None,
+                                           model=None) -> SocialStage:
+        """资本主义阶段转换检查
+
+        资本主义可以转变为社会主义（通过革命或计划关系的出现）
+        """
+        if edge_counts is None:
+            return SocialStage.CAPITALIST_STATE
+
+        # 如果出现计划关系边，说明正在向社会主义过渡
+        if edge_counts.get('planning', 0) > 0:
+            return SocialStage.SOCIALIST_STATE
+
+        # 资本主义后期，利润率下降和危机可能导致向社会主义过渡
+        if model:
+            profit_rate = model.reproduction_engine.crisis_indicators.get('profit_rate', 0)
+
+            # 条件：利润率低 OR 高度分化 OR 人口足够多（超过一定时间后强制过渡）
+            time_in_capitalism = model.time - getattr(model, '_capitalism_start_time', model.time)
+            # 降低时间阈值，使演示更快速看到完整演进
+            force_transition = time_in_capitalism > 50  # 超过50步强制过渡（用于演示）
+
+            if (profit_rate < 0.10 and metrics.stratification > 0.3) or force_transition:
+                # 危机深化时，创建计划关系边
+                self._auto_create_socialist_edges(model)
+                return SocialStage.SOCIALIST_STATE
+
+        return SocialStage.CAPITALIST_STATE
+
+    def _auto_create_capitalist_edges(self, model):
+        """自动创建雇佣关系边（用于封建社会阶段触发资本主义化）"""
+        from src.model.agents import Capitalist, Worker
+        from src.model.relations import RelationTypes
+
+        existing = list(model._agent_lookup.values())
+        if not existing:
+            return
+
+        # 创建资本家
+        num_capitalists = min(3, max(1, len(existing) // 50))
+        capitalists = []
+
+        for i in range(num_capitalists):
+            capitalist = Capitalist(model)
+            pos = (model.random.random() * model.space.width,
+                   model.random.random() * model.space.height)
+            model.space.place_agent(capitalist, pos)
+            capitalist.pos = pos
+            model.social_graph.add_agent(capitalist.unique_id)
+            model._agent_lookup[capitalist.unique_id] = capitalist
+            capitalists.append(capitalist)
+
+        # 创建工人并建立雇佣关系
+        num_workers = min(20, max(10, len(existing) // 5))
+        for i in range(num_workers):
+            worker = Worker(model)
+            pos = (model.random.random() * model.space.width,
+                   model.random.random() * model.space.height)
+            model.space.place_agent(worker, pos)
+            worker.pos = pos
+            model.social_graph.add_agent(worker.unique_id)
+            model._agent_lookup[worker.unique_id] = worker
+
+            # 分配给资本家
+            capitalist_idx = i % len(capitalists)
+            capitalist = capitalists[capitalist_idx]
+            worker.employed_by = capitalist.unique_id
+            capitalist.workers_employed.append(worker.unique_id)
+
+            # 创建工资合同边
+            model.social_graph.add_edge(
+                worker.unique_id, capitalist.unique_id,
+                RelationTypes.WAGE_CONTRACT,
+                weight=1.0
+            )
+
+    def _auto_create_socialist_edges(self, model):
+        """自动创建计划分配边（用于资本主义阶段触发社会主义化）"""
+        from src.model.relations import RelationTypes
+
+        all_agents = list(model._agent_lookup.values())
+        if len(all_agents) > 1:
+            for i, agent in enumerate(all_agents[:30]):  # 限制数量
+                next_agent = all_agents[(i + 1) % len(all_agents)]
+                model.social_graph.add_edge(
+                    agent.unique_id, next_agent.unique_id,
+                    RelationTypes.PLANNING,
+                    weight=1.0
+                )
 
     def get_current_stage(self) -> SocialStage:
         """获取当前阶段"""

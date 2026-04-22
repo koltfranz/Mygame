@@ -143,3 +143,69 @@ class ClassStruggleEngine:
             'class_consciousness': self.metrics.class_consciousness,
             'revolutionary_tension': self.metrics.revolutionary_tension,
         }
+
+    def consolidate_wage_struggle(self, capitalist, model) -> float:
+        """
+        整合工资斗争 - 计算单个资本家的工人斗争强度
+
+        Returns斗争参与率 (0.0 - 1.0)
+        """
+        workers = []
+        for worker_id in capitalist.workers_employed:
+            worker = model.get_agent(worker_id)
+            if worker and hasattr(worker, 'value_equivalent_held'):
+                workers.append(worker)
+
+        if not workers:
+            return 0.0
+
+        # 计算工资斗争强度
+        avg_wage = sum(w.value_equivalent_held for w in workers) / len(workers)
+        avg_labor_power_value = sum(
+            self._calculate_labor_power_value(w) for w in workers
+        ) / len(workers)
+
+        # 工资低于劳动力价值时斗争加剧
+        wage_ratio = avg_wage / max(avg_labor_power_value, 0.1)
+        struggle_level = max(0.0, 1.0 - wage_ratio)
+
+        # 产业后备军规模影响斗争力度
+        unemployed_count = 0
+        for agent in model._agent_lookup.values():
+            if hasattr(agent, 'employed_by') and agent.employed_by is None:
+                if hasattr(agent, 'value_equivalent_held'):
+                    unemployed_count += 1
+
+        reserve_army_effect = unemployed_count / max(len(model._agent_lookup), 1)
+        struggle_level *= (1.0 + reserve_army_effect)
+
+        return min(1.0, struggle_level)
+
+    def consolidate_rent_struggle(self, serf, model) -> float:
+        """
+        整合地租斗争 - 计算单个农奴的抗租强度
+
+        Returns 抗租强度 (0.0 - 1.0)
+        """
+        if not hasattr(serf, 'lord_id') or not serf.lord_id:
+            return 0.0
+
+        lord = model.get_agent(serf.lord_id)
+        if not lord:
+            return 0.0
+
+        # 剩余提取率
+        if serf.commodity_inventory:
+            serf_surplus = len(serf.commodity_inventory)
+        else:
+            serf_surplus = 0.0
+
+        # 生存满意度反映被剥削程度
+        exploitation = 1.0 - serf.subsistence_satisfaction
+
+        # 有一定财富积累的农奴更有能力抵抗
+        wealth_factor = min(serf.value_equivalent_held / 10.0, 1.0)
+
+        resistance = exploitation * (0.5 + 0.5 * wealth_factor)
+
+        return min(1.0, resistance)

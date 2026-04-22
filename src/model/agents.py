@@ -349,7 +349,7 @@ class Serf(Human):
 
         # 耕种自己的小块土地
         if self.labor_power_capacity > 0.5:
-            self._attempt_production(model)
+            self._attempt_farming(model)
 
         # 上缴地租
         self._pay_rent(model)
@@ -359,6 +359,26 @@ class Serf(Human):
 
         if self.subsistence_satisfaction <= 0:
             model.remove_agent(self)
+
+    def _attempt_farming(self, model):
+        """从事农业生产"""
+        # 恢复劳动能力
+        self.labor_power_capacity = min(1.0, self.labor_power_capacity + 0.1)
+
+        # 采集
+        if self.pos and hasattr(model, 'landscape'):
+            cell = model.landscape.get_cell_at(self.pos)
+            if cell:
+                self.gather_naturally(cell)
+
+        # 生产作物
+        if self.labor_power_capacity > 0.4:
+            can_produce, _ = self.production.can_produce(self, 'grain_grow')
+            if can_produce:
+                grain = self.production.produce(self, 'grain_grow', model)
+                if grain:
+                    self.add_commodity(grain)
+                    SNLTCalculator.update_snlt('grain', grain.individual_labor_embodied)
 
     def _pay_rent(self, model):
         """支付地租
@@ -465,6 +485,16 @@ class Worker(Human):
 
         if self.subsistence_satisfaction <= 0:
             model.remove_agent(self)
+
+    def _produce_labor(self, model):
+        """为资本家生产（用于五步时序第一阶段）"""
+        if self.employed_by and self.labor_power_capacity > 0.3:
+            # 生产商品
+            product = self.production.produce(self, 'craft_tool', model)
+            if product:
+                self.add_commodity(product)
+                from src.engine.labor_value import SNLTCalculator
+                SNLTCalculator.update_snlt('craft_tool', product.individual_labor_embodied)
 
     def _consume_as_worker(self):
         """工人消费"""

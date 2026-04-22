@@ -18,6 +18,8 @@ class SNLTCalculator:
 
     Value is NOT a static attribute - it is a post-hoc ghost ratio
     calculated based on reproduction conditions.
+
+    社会主义模式下：价值形式消亡，SNLT计算器停机，物品退回State_Product。
     """
 
     # Global SNLT registry by commodity type
@@ -25,10 +27,29 @@ class SNLTCalculator:
     _total_produced: Dict[str, float] = defaultdict(float)
     _total_labor: Dict[str, float] = defaultdict(float)
     _sectors: Dict[str, str] = {}
+    _socialist_mode: bool = False  # 社会主义模式标志
+
+    @classmethod
+    def set_socialist_mode(cls, enabled: bool):
+        """设置社会主义模式 - 启用时价值形式消亡"""
+        cls._socialist_mode = enabled
+        if enabled:
+            # 社会主义模式下，SNLT不再更新
+            cls._global_snlt.clear()
+            cls._total_produced.clear()
+            cls._total_labor.clear()
+
+    @classmethod
+    def is_socialist_mode(cls) -> bool:
+        """检查是否处于社会主义模式"""
+        return cls._socialist_mode
 
     @classmethod
     def get_snlt(cls, commodity_type: str) -> float:
         """获取某商品的SNLT"""
+        if cls._socialist_mode:
+            # 社会主义模式下，SNLT概念消亡，返回0表示不需要价值裁决
+            return 0.0
         return cls._global_snlt.get(commodity_type, 10.0)
 
     @classmethod
@@ -42,7 +63,12 @@ class SNLTCalculator:
         更新SNLT - Update SNLT based on new production.
 
         SNLT is a weighted average that shifts as technology improves.
+        社会主义模式下此方法不生效。
         """
+        if cls._socialist_mode:
+            # 社会主义模式下价值形式消亡，不更新SNLT
+            return
+
         cls._total_produced[commodity_type] += quantity
         cls._total_labor[commodity_type] += individual_labor * quantity
 

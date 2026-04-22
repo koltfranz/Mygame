@@ -14,6 +14,10 @@ from src.model.resources import Landscape
 from src.model.social_stage import SocialStage, TransitionEngine
 from src.analysis.data_collector import DataCollector
 from src.engine.reproduction import ReproductionEngine
+from src.superstructure.state_apparatus import StateApparatus
+from src.superstructure.political_regime import PoliticalRegime
+from src.superstructure.ideology_manager import IdeologyManager
+from src.utils.snapshot import SnapshotManager, Snapshot
 
 
 class CapitalModel(Model):
@@ -51,13 +55,27 @@ class CapitalModel(Model):
         # Reproduction engine (for crisis detection)
         self.reproduction_engine = ReproductionEngine()
 
+        # Political subsystems
+        self.state_apparatus = StateApparatus()
+        self.political_regime = PoliticalRegime()
+        self.ideology_manager = IdeologyManager()
+
         # Data collector
         self.data_collector = DataCollector(self)
+
+        # Snapshot manager for diagnostic reports
+        self.snapshot_manager = SnapshotManager(max_snapshots=50)
 
         # Track agents for lookup
         self._agent_lookup: dict = {}
         self.lords: list = []
         self.serfs: list = []
+
+        #资本主义阶段开始时间（用于五步时序调度）
+        self._capitalism_start_time: float = 0
+
+        # 时间追踪（从公元前10万年start）
+        self._current_year: int = -100000  # 公元前10万年
 
         # Initialize agents
         self._initialize_agents(num_foragers, num_tribe_members, num_farmers)
@@ -123,8 +141,67 @@ class CapitalModel(Model):
         """计算两点间距离"""
         return ((pos1[0] - pos2[0])**2 + (pos1[1] - pos2[1])**2)**0.5
 
+    def _advance_year(self):
+        """根据当前社会阶段推进年份
+
+        目标时间线 (从公元前100,000年开始):
+        - 原始群 -> 部落: ~10,000年
+        - 部落 -> 早期国家: ~10,000年
+        - 早期国家 -> 封建(公元500年): ~80,500年
+        - 封建 -> 资本主义(1800年): ~1,300年
+        - 资本主义 -> 社会主义(2000年): ~200年
+
+        时间尺度:
+        - 原始群、游群时期: 每步100年 (快进)
+        - 部落、部落联盟、酋邦时期: 每步100年 (快进)
+        - 早期国家: 每步500年 (快进)
+        - 奴隶社会: 每步100年
+        - 封建社会: 每步5年
+        - 资本主义社会: 每步1个月
+        - 社会主义社会: 每步1个月
+        """
+        if self.social_stage == SocialStage.PRIMITIVE_HORDE:
+            # 原始群: 200年/步 (约500步到游群)
+            self._current_year += 200
+        elif self.social_stage == SocialStage.BAND:
+            # 游群: 100年/步
+            self._current_year += 100
+        elif self.social_stage == SocialStage.TRIBE:
+            # 部落: 100年/步
+            self._current_year += 100
+        elif self.social_stage == SocialStage.TRIBAL_CONFEDERACY:
+            # 部落联盟: 100年/步
+            self._current_year += 100
+        elif self.social_stage == SocialStage.CHIEFDOM:
+            # 酋邦: 100年/步
+            self._current_year += 100
+        elif self.social_stage == SocialStage.EARLY_STATE:
+            # 早期国家: 500年/步 (快速跨越)
+            self._current_year += 500
+        elif self.social_stage == SocialStage.SLAVERY_STATE:
+            # 奴隶社会: 100年/步
+            self._current_year += 100
+        elif self.social_stage == SocialStage.FEUDAL_STATE:
+            # 封建社会: 5年/步
+            self._current_year += 5
+        else:
+            # 资本主义和社会主义: 1个月/步
+            self._current_year += 1  # 1个月
+
+    def get_formatted_year(self) -> str:
+        """获取格式化的年份字符串"""
+        year = self._current_year
+        if year <= 0:
+            # 公元前
+            return f"公元前{abs(year):,}年"
+        else:
+            return f"公元{year:,}年"
+
     def step(self):
         """模型步进"""
+        # 0. Advance year based on current stage
+        self._advance_year()
+
         # 1. Evaluate social stage transition
         new_stage = self.transition_engine.evaluate(self)
         if new_stage != self.social_stage:
@@ -132,18 +209,157 @@ class CapitalModel(Model):
             self.social_stage = new_stage
             self._on_stage_transition(old_stage, new_stage)
 
-        # 2. All agents act
-        for agent in list(self.agents):
-            agent.step(self)
+        # 2. Update political subsystems based on current stage
+        self._update_political_subsystems()
 
-        # 3. Landscape regenerates
+        # 资本主义阶段启用生产价格转换
+        if self.social_stage == SocialStage.CAPITALIST_STATE:
+            self.reproduction_engine.enable_production_price(True)
+        else:
+            self.reproduction_engine.enable_production_price(False)
+
+        # 3. All agents act (资本主义阶段使用五步时序)
+        if self.social_stage == SocialStage.CAPITALIST_STATE:
+            self._step_capitalist_staged()
+        else:
+            for agent in list(self.agents):
+                agent.step(self)
+
+        # 4. Landscape regenerates
         self.landscape.regenerate()
 
-        # 4. Detect crises
+        # 5. Detect crises
         crisis_data = self.reproduction_engine.detect_crisis(self)
 
-        # 5. Collect data
+        # 6. Collect data
         self.data_collector.collect()
+
+        # 7. Take snapshots periodically
+        if int(self.time) % self.snapshot_manager.snapshot_interval == 0:
+            snap = Snapshot(self.model if hasattr(self, 'model') else self, int(self.time))
+            snap.capture(self)
+            self.snapshot_manager.add_snapshot(snap)
+
+    def _step_capitalist_staged(self):
+        """资本主义五步时序步进"""
+        from src.engine.labor_value import SNLTCalculator
+        from src.engine.value_form_router import ImpedanceRouter
+        from src.engine.class_struggle import ClassStruggleEngine
+
+        # 第一阶段：生产期
+        for agent in list(self.agents):
+            if hasattr(agent, 'employed_by') and agent.employed_by:
+                agent._produce_labor(model=self)
+
+        # 第二阶段：SNLT 事后裁决
+        for agent in list(self.agents):
+            for commodity in agent.commodity_inventory[:]:
+                if hasattr(commodity, 'exchange_status') and commodity.exchange_status == 'Pending':
+                    sector = getattr(commodity, 'sector', 'craft_tool')
+                    snlt = SNLTCalculator.get_snlt(sector)
+                    if hasattr(commodity, 'individual_labor_embodied'):
+                        if commodity.individual_labor_embodied > snlt * 1.5:
+                            commodity.physical_props['snlt_eliminated'] = True
+
+        # 第三阶段：阻抗路由与强制交割
+        router = ImpedanceRouter(self.social_graph)
+        for agent in list(self.agents):
+            for commodity in agent.commodity_inventory[:]:
+                if hasattr(commodity, 'exchange_status') and commodity.exchange_status == 'Pending':
+                    route = router.calculate_route(commodity, self)
+                    if route and route.get('target'):
+                        self._force_delivery(agent, commodity, route['target'])
+
+        # 第四阶段：阶级博弈期
+        struggle_engine = ClassStruggleEngine()
+        for agent in list(self.agents):
+            if hasattr(agent, 'workers_employed'):
+                struggle_engine.consolidate_wage_struggle(agent, self)
+            if hasattr(agent, 'lord_id'):
+                struggle_engine.consolidate_rent_struggle(agent, self)
+
+        # 第五阶段：SNLT断头台 - 淘汰落后者
+        self._eliminate_uncompetitive()
+
+    def _force_delivery(self, sender, commodity, receiver_id):
+        """强制交割"""
+        receiver = self.get_agent(receiver_id)
+        if receiver and commodity in sender.commodity_inventory:
+            sender.commodity_inventory.remove(commodity)
+            commodity.exchange_status = 'Exchanged'
+            receiver.commodity_inventory.append(commodity)
+
+    def _eliminate_uncompetitive(self):
+        """SNLT断头台：淘汰竞争力不足的资本家"""
+        for agent in list(self.agents):
+            if hasattr(agent, 'capital_stock') and hasattr(agent, 'workers_employed'):
+                total_labor = len(agent.workers_employed) * 8.0
+                if total_labor > agent.capital_stock * 2:
+                    agent.capital_stock -= total_labor * 0.1
+                    if agent.capital_stock <= 0:
+                        self._eliminate_capitalist(agent)
+
+        # 失业工人进入产业后备军
+        for agent in list(self.agents):
+            if hasattr(agent, 'employed_by') and agent.employed_by:
+                employer = self.get_agent(agent.employed_by)
+                if not employer or not hasattr(employer, 'capital_stock'):
+                    agent.employed_by = None
+
+    def _eliminate_capitalist(self, capitalist):
+        """淘汰资本家，机器被其他资本家接管"""
+        for machine in capitalist.machines_owned[:]:
+            for other in list(self.agents):
+                if other != capitalist and hasattr(other, 'machines_owned'):
+                    other.machines_owned.append(machine)
+                    break
+        for worker_id in capitalist.workers_employed[:]:
+            worker = self.get_agent(worker_id)
+            if worker:
+                worker.employed_by = None
+        self.remove_agent(capitalist)
+
+    def _update_political_subsystems(self):
+        """更新政治子系统"""
+        # Determine mode of production from social stage
+        mode_map = {
+            SocialStage.PRIMITIVE_HORDE: "primitive_communal",
+            SocialStage.BAND: "primitive_communal",
+            SocialStage.TRIBE: "primitive_communal",
+            SocialStage.TRIBAL_CONFEDERACY: "primitive_communal",
+            SocialStage.CHIEFDOM: "primitive_communal",
+            SocialStage.EARLY_STATE: "slave_society",
+            SocialStage.SLAVERY_STATE: "slave_society",
+            SocialStage.FEUDAL_STATE: "feudalism",
+            SocialStage.CAPITALIST_STATE: "capitalism",
+            SocialStage.SOCIALIST_STATE: "socialism",
+        }
+        mode = mode_map.get(self.social_stage, "primitive_communal")
+
+        # Update class forces
+        class_forces = self._calculate_class_forces()
+
+        # Update political regime
+        self.political_regime.determine_regime(class_forces, mode)
+
+        # Update state apparatus
+        self.state_apparatus.check_state_form_transition(mode)
+        if class_forces:
+            dominant_class = max(class_forces.items(), key=lambda x: x[1])[0]
+            self.state_apparatus.ruling_class = dominant_class
+
+        # Update ideology manager
+        crisis_level = self.reproduction_engine.crisis_indicators.get('department_imbalance', 0.0)
+        self.ideology_manager.update_hegemony(mode, crisis_level)
+
+    def _calculate_class_forces(self) -> dict:
+        """计算阶级力量对比"""
+        class_counts = self.data_collector.get_latest().get('class_distribution', {})
+        total = sum(class_counts.values())
+        if total == 0:
+            return {}
+
+        return {cls: count / total for cls, count in class_counts.items() if count > 0}
 
     def _on_stage_transition(self, old_stage: SocialStage, new_stage: SocialStage):
         """阶段转换时的处理"""
@@ -153,6 +369,11 @@ class CapitalModel(Model):
             self._transition_to_slave_society()
         elif new_stage == SocialStage.FEUDAL_STATE:
             self._transition_to_feudalism()
+        elif new_stage == SocialStage.CAPITALIST_STATE:
+            self._capitalism_start_time = self.time
+            self._transition_to_capitalism()
+        elif new_stage == SocialStage.SOCIALIST_STATE:
+            self._transition_to_socialism()
 
     def _transition_to_slave_society(self):
         """转换到奴隶社会 SLAVERY_STATE"""
@@ -222,9 +443,17 @@ class CapitalModel(Model):
                 if isinstance(agent, Human):
                     # Create new serf
                     serf = Serf(self)
-                    serf.pos = agent.pos
+                    # Handle case where agent.pos might be None
+                    if agent.pos is not None:
+                        serf.pos = agent.pos
+                        self.space.place_agent(serf, agent.pos)
+                    else:
+                        # Use a random position if agent has no position
+                        pos = (self.random.random() * self.space.width,
+                               self.random.random() * self.space.height)
+                        serf.pos = pos
+                        self.space.place_agent(serf, pos)
                     serf.skill_type = 'farming'
-                    self.space.place_agent(serf, agent.pos)
                     self.social_graph.add_agent(serf.unique_id)
                     self._agent_lookup[serf.unique_id] = serf
 
@@ -245,6 +474,94 @@ class CapitalModel(Model):
                         RelationTypes.FEUDAL_RENT,
                         weight=1.0
                     )
+
+    def _transition_to_capitalism(self):
+        """转换到资本主义社会 CAPITALIST_STATE
+
+        创建资本家和工人，建立雇佣关系边。
+        """
+        from src.model.agents import Capitalist, Worker
+
+        existing_agents = list(self.agents)
+        total_pop = len(existing_agents)
+
+        # 根据人口决定资本家和工人数量
+        num_capitalists = max(2, total_pop // 50)
+        num_workers = max(10, total_pop // 5)
+
+        capitalists = []
+        workers = []
+
+        # 创建资本家
+        for i in range(num_capitalists):
+            capitalist = Capitalist(self)
+            pos = (self.random.random() * self.space.width,
+                   self.random.random() * self.space.height)
+            self.space.place_agent(capitalist, pos)
+            capitalist.pos = pos
+            self.social_graph.add_agent(capitalist.unique_id)
+            self._agent_lookup[capitalist.unique_id] = capitalist
+            capitalists.append(capitalist)
+
+        # 创建工人并建立雇佣关系
+        for i in range(num_workers):
+            worker = Worker(self)
+            pos = (self.random.random() * self.space.width,
+                   self.random.random() * self.space.height)
+            self.space.place_agent(worker, pos)
+            worker.pos = pos
+            self.social_graph.add_agent(worker.unique_id)
+            self._agent_lookup[worker.unique_id] = worker
+            workers.append(worker)
+
+            # 分配给资本家（轮询分配）
+            capitalist_idx = i % len(capitalists)
+            capitalist = capitalists[capitalist_idx]
+            capitalist.workers_employed.append(worker.unique_id)
+            worker.employed_by = capitalist.unique_id
+
+            # 创建工资合同边（工人 -> 资本家）
+            self.social_graph.add_edge(
+                worker.unique_id, capitalist.unique_id,
+                RelationTypes.WAGE_CONTRACT,
+                weight=1.0
+            )
+
+    def _transition_to_socialism(self):
+        """转换到社会主义社会 SOCIALIST_STATE
+
+        将雇佣关系转换为计划分配关系。
+        价值形式消亡，SNLT计算器停机。
+        """
+        from src.model.agents import Worker
+        from src.model.relations import RelationTypes
+        from src.engine.labor_value import SNLTCalculator
+
+        # 启用社会主义模式 - 价值形式消亡
+        SNLTCalculator.set_socialist_mode(True)
+
+        existing_agents = list(self.agents)
+
+        # 将所有资本家转换为管理者（保留但不占有剩余价值）
+        for agent in existing_agents:
+            if isinstance(agent, Worker):
+                # 工人保持，但雇佣关系转为计划关系
+                # 移除旧的 WAGE_CONTRACT 边
+                if hasattr(agent, 'employed_by') and agent.employed_by:
+                    # WAGE_CONTRACT 边会在社会图中被 PLANNING 边替代
+                    pass
+
+        # 创建 PLANNING 边（所有人 -> 规划中心，简化处理为环形）
+        all_agents = list(self._agent_lookup.values())
+        if len(all_agents) > 1:
+            for i, agent in enumerate(all_agents):
+                # 每个人与下一个人形成计划关系（环形）
+                next_agent = all_agents[(i + 1) % len(all_agents)]
+                self.social_graph.add_edge(
+                    agent.unique_id, next_agent.unique_id,
+                    RelationTypes.PLANNING,
+                    weight=1.0
+                )
 
     def remove_agent(self, agent):
         """移除Agent"""
