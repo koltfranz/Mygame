@@ -232,7 +232,7 @@ class TransitionEngine:
         # 需要更多人口积累才进入部落
         if metrics.population >= 60 and metrics.sedentary_ratio > 0.2:
             return SocialStage.TRIBE
-        if metrics.population >= 50 and metrics.plant_knowledge > 0.4:
+        if metrics.population >= 50 and metrics.plant_knowledge >= 0.4:
             return SocialStage.TRIBE
         return SocialStage.BAND
 
@@ -459,7 +459,7 @@ class TransitionEngine:
 
         # 资本主义后期，利润率下降和危机可能导致向社会主义过渡
         if model:
-            profit_rate = model.reproduction_engine.crisis_indicators.get('profit_rate', 0)
+            profit_rate = model.reproduction_engine.crisis_indicators.get('rate_of_profit', 0)
 
             # 条件：利润率低 OR 高度分化 OR 人口足够多（超过一定时间后强制过渡）
             time_in_capitalism = model.time - getattr(model, '_capitalism_start_time', model.time)

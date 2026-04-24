@@ -71,21 +71,32 @@ class Matter:
         """
         动态判定使用价值 - Dynamic use-value matching.
         This is an EVENT, not a static property.
+
+        Matching is done against physical_props boolean dict:
+        {"edible": True, "wearable": False, "tool": True}
+
+        Also supports legacy ItemTags list format for backward compatibility.
         """
         if self.state == MatterState.STATE_USELESS:
             return False
-        if self.state == MatterState.STATE_PURE_USE_VALUE:
-            # 自然界的直接赐予，无需劳动 - 检查 tags
-            for tag in self.physical_props.get("tags", []):
-                if tag.value == need_type or tag.value == "edible":
-                    return True
-            return need_type in self.physical_props.get("satisfies", [])
 
-        # For products and commodities, check functional tags
-        if self.state in (MatterState.STATE_PRODUCT, MatterState.STATE_COMMODITY):
-            for tag in self.physical_props.get("tags", []):
+        # Primary: check physical_props boolean flags (outline spec)
+        # need_type like "edible", "wearable", "tool" maps to physical_props boolean
+        if self.physical_props.get(need_type, False):
+            return True
+
+        # Secondary: check "tags" list (legacy format with ItemTags enum)
+        for tag in self.physical_props.get("tags", []):
+            if hasattr(tag, 'value'):
                 if tag.value == need_type or tag.value == "edible":
                     return True
+            elif tag == need_type or tag == "edible":
+                return True
+
+        # Tertiary: check "satisfies" list (legacy string list)
+        if need_type in self.physical_props.get("satisfies", []):
+            return True
+
         return False
 
     def check_use_value_loss(self) -> bool:
@@ -132,13 +143,46 @@ class Matter:
     def determine_sector(matter, context: str = None) -> str:
         """
         部类动态判定 - Determine sector dynamically.
+
+        Context parameter values (per outline spec):
+        - "invested_as_seed": 作为种子投入再生产 -> SECTOR_I
+        - "invested_as_raw_material": 作为原料投入 -> SECTOR_I
+        - "consumed_by_worker": 被工人消费 -> SECTOR_II
+        - "consumed_by_capitalist": 被资本家消费 -> SECTOR_LUX
+        - "hoarded_as_money": 作为货币贮藏 -> SECTOR_MONEY
+
         Returns: SECTOR_I (生产资料), SECTOR_II (消费资料),
-                 SECTOR_TRANSPORT, or SECTOR_MONEY
+                 SECTOR_LUX (奢侈品), SECTOR_MONEY (货币)
         """
         if matter.state == MatterState.STATE_USELESS:
-            return "SECTOR_II"  # Default
+            return "SECTOR_II"
 
-        tag_values = [t.value for t in matter.physical_props.get("tags", [])]
+        # Context-based sector determination (takes priority)
+        if context == "invested_as_seed" or context == "invested_as_raw_material":
+            return "SECTOR_I"
+        if context == "consumed_by_worker":
+            return "SECTOR_II"
+        if context == "consumed_by_capitalist":
+            return "SECTOR_LUX"
+        if context == "hoarded_as_money":
+            return "SECTOR_MONEY"
+
+        # Fallback: physical_props-based determination
+        if matter.physical_props.get("money_commodity", False):
+            return "SECTOR_MONEY"
+        if matter.physical_props.get("tool", False) or matter.physical_props.get("raw_material", False) \
+                or matter.physical_props.get("means_of_production", False):
+            return "SECTOR_I"
+        if matter.physical_props.get("luxury", False):
+            return "SECTOR_LUX"
+
+        # Legacy tag-based (ItemTags enum support)
+        tag_values = set()
+        for tag in matter.physical_props.get("tags", []):
+            if hasattr(tag, 'value'):
+                tag_values.add(tag.value)
+            elif isinstance(tag, str):
+                tag_values.add(tag)
 
         if ItemTags.MONEY_COMMODITY.value in tag_values:
             return "SECTOR_MONEY"
@@ -146,6 +190,7 @@ class Matter:
             return "SECTOR_TRANSPORT"
         if ItemTags.TOOL.value in tag_values or ItemTags.RAW_MATERIAL.value in tag_values:
             return "SECTOR_I"
+
         return "SECTOR_II"
 
 

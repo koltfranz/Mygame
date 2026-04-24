@@ -116,7 +116,7 @@ def _print_step_report(model, step: int):
     econ = data.get('economic_metrics', {})
     print(f"  剩余价值率 (s/v): {econ.get('rate_of_surplus_value', 0):.4f}")
     print(f"  资本有机构成 (c/v): {econ.get('organic_composition', 0):.4f}")
-    print(f"  利润率 p': {econ.get('profit_rate', 0):.4f}")
+    print(f"  利润率 p': {econ.get('rate_of_profit', 0):.4f}")
     print(f"  部类偏离度: {econ.get('department_imbalance', 0):.4f}")
     print(f"  平均库存: {econ.get('avg_inventory', 0):.2f}")
     print(f"  平均劳动能力: {econ.get('avg_labor_capacity', 0):.2f}")
@@ -270,7 +270,7 @@ def _print_final_summary(model: CapitalModel):
     econ = final_data.get('economic_metrics', {})
     print(f"  剩余价值率 (s/v): {econ.get('rate_of_surplus_value', 0):.4f}")
     print(f"  资本有机构成 (c/v): {econ.get('organic_composition', 0):.4f}")
-    print(f"  利润率 p': {econ.get('profit_rate', 0):.4f}")
+    print(f"  利润率 p': {econ.get('rate_of_profit', 0):.4f}")
     print(f"  部类偏离度: {econ.get('department_imbalance', 0):.4f}")
 
     # 阶级分布
@@ -367,11 +367,11 @@ def _plot_results(history: list):
     subsistence = [h['average_subsistence'] for h in history]
 
     # 提取经济指标历史
-    profit_rates = []
+    rates_of_profit = []
     surplus_rates = []
     for h in history:
         econ = h.get('economic_metrics', {})
-        profit_rates.append(econ.get('profit_rate', 0))
+        rates_of_profit.append(econ.get('rate_of_profit', 0))
         surplus_rates.append(econ.get('rate_of_surplus_value', 0))
 
     # 提取人口动态历史
@@ -441,7 +441,7 @@ def _plot_results(history: list):
 
     # 4. 经济指标
     ax4 = axes[1, 1]
-    ax4.plot(steps, profit_rates, 'r-', label='利润率 p\'', linewidth=2)
+    ax4.plot(steps, rates_of_profit, 'r-', label='利润率 p\'', linewidth=2)
     ax4.plot(steps, surplus_rates, 'm--', label='剩余价值率 s/v', linewidth=2)
     ax4.set_xlabel('步数 (Step)')
     ax4.set_ylabel('比率 (Rate)')

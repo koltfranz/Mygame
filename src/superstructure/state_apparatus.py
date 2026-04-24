@@ -52,16 +52,36 @@ class StateApparatus:
         # Fiscal capacity determines how efficiently tribute is collected
         return population * self.fiscal_capacity * 0.1
 
-    def check_state_form_transition(self, mode_of_production: str) -> str:
-        """检查国家形式是否需要转换"""
+    def check_state_form_transition(self, mode_of_production) -> str:
+        """检查国家形式是否需要转换
+
+        Supports both SocialStage enum and string mode_of_production.
+        """
+        # Handle SocialStage enum
+        if hasattr(mode_of_production, 'value'):
+            mp = mode_of_production.value
+        else:
+            mp = mode_of_production
+
         form_map = {
+            "primitive_horde": "tribal",
+            "band": "tribal",
+            "tribe": "tribal",
+            "tribal_confederacy": "tribal",
+            "chiefdom": "chiefdom",
+            "early_state": "early_state",
+            "slavery_state": "slave_holding",
+            "feudal_state": "feudal",
+            "capitalist_state": "bourgeois",
+            "socialist_state": "workers",
+            # Legacy string keys
             "primitive_communal": "tribal",
             "slave_society": "slave_holding",
             "feudalism": "feudal",
             "capitalism": "bourgeois",
             "socialism": "workers",
         }
-        new_form = form_map.get(mode_of_production, self.state_form)
+        new_form = form_map.get(mp, self.state_form)
 
         if new_form != self.state_form:
             self.state_form = new_form

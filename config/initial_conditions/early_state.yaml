@@ -1,0 +1,33 @@
+# 早期国家初始条件
+population: 10000+
+agents:
+  - type: Farmer
+    ratio: 0.7
+  - type: Artisan
+    ratio: 0.1
+    skills:
+      crafting: 1.5
+  - type: Warrior
+    ratio: 0.08
+  - type: Administrator
+    ratio: 0.05
+    skills:
+      management: 2.0
+  - type: Ruler
+    ratio: 0.02
+
+social_relations:
+  - type: residence
+    probability: 0.5
+  - type: tributary
+    probability: 0.3
+  - type: military_service
+    probability: 0.15
+  - type: slavery
+    probability: 0.05
+
+state_capacity: 0.6
+legitimacy: 0.7
+bureaucracy_level: 0.3
+
+time_scale: 1年/步

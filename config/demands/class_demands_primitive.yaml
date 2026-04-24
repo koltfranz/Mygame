@@ -1,0 +1,27 @@
+# 原始社会阶级需求
+demands:
+  forager:
+    daily_needs:
+      - commodity: berries
+        quantity: 3
+      - commodity: water
+        quantity: 2
+    survival_threshold: 0.3
+
+  hunter:
+    daily_needs:
+      - commodity: meat
+        quantity: 2
+      - commodity: berries
+        quantity: 2
+      - commodity: spear
+        quantity: 0.1
+    survival_threshold: 0.4
+
+  tribe_member:
+    daily_needs:
+      - commodity: grain
+        quantity: 2
+      - commodity: stone_tool
+        quantity: 0.1
+    survival_threshold: 0.5

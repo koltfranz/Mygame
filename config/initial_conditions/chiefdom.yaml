@@ -1,0 +1,28 @@
+# 酋邦初始条件
+population: 2000-10000
+agents:
+  - type: Farmer
+    ratio: 0.6
+  - type: TribeMember
+    ratio: 0.2
+  - type: Warrior
+    ratio: 0.1
+  - type: Chief
+    ratio: 0.08
+    hereditary: true
+  - type: Priest
+    ratio: 0.02
+
+social_relations:
+  - type: tributary
+    probability: 0.6
+  - type: residence
+    probability: 0.2
+  - type: military_service
+    probability: 0.2
+
+hereditary_index: 0.4
+gini_coefficient: 0.35
+surplus_ratio: 0.25
+
+time_scale: 1年/步

@@ -1,0 +1,40 @@
+# 资本主义初始条件
+population: 500-2000
+agents:
+  capitalist:
+    ratio: 0.05
+    skills:
+      management: 2.0
+    attributes:
+      capital_stock: 100.0
+  worker:
+    ratio: 0.8
+    skills:
+      labor: 1.0
+    attributes:
+      wage_rate: 8.0
+      labor_power_capacity: 1.0
+  landlord:
+    ratio: 0.05
+    skills:
+      management: 1.5
+    attributes:
+      land_owned: 50
+  artisan:
+    ratio: 0.1
+    skills:
+      crafting: 1.8
+
+social_relations:
+  - type: wage_contract
+    probability: 0.8
+  - type: feudal_rent
+    probability: 0.1
+  - type: training
+    probability: 0.1
+
+organic_composition: 3.0
+reserve_army_rate: 0.15
+average_profit_rate: 0.20
+
+time_scale: 1年→1月/步

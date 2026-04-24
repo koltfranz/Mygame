@@ -1,0 +1,43 @@
+# 资本主义物品类属
+commodities:
+  - name: grain
+    tags: [edible]
+    sector: SECTOR_II
+    snlt_base: 2.0
+
+  - name: cotton
+    tags: [raw_material]
+    sector: SECTOR_I
+    snlt_base: 3.0
+
+  - name: cloth
+    tags: [edible]
+    sector: SECTOR_II
+    snlt_base: 8.0
+
+  - name: machine
+    tags: [tool]
+    sector: SECTOR_I
+    snlt_base: 50.0
+    means_of_production: true
+
+  - name: iron
+    tags: [raw_material]
+    sector: SECTOR_I
+    snlt_base: 5.0
+
+  - name: steel
+    tags: [raw_material]
+    sector: SECTOR_I
+    snlt_base: 10.0
+
+  - name: luxury_goods
+    tags: [luxury]
+    sector: SECTOR_II
+    snlt_base: 30.0
+
+  - name: gold
+    tags: [money_commodity]
+    sector: SECTOR_MONEY
+    snlt_base: 100.0
+    universal_equivalent: true

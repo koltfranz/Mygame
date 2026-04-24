@@ -6,6 +6,7 @@ Collects metrics each step for analysis.
 
 from typing import Dict, List
 import numpy as np
+import networkx as nx
 
 
 class DataCollector:
@@ -140,7 +141,7 @@ class DataCollector:
             crisis = self.model.reproduction_engine.crisis_indicators
             metrics['rate_of_surplus_value'] = crisis.get('rate_of_surplus_value', 0.0)
             metrics['organic_composition'] = crisis.get('organic_composition', 0.0)
-            metrics['profit_rate'] = crisis.get('profit_rate', 0.0)
+            metrics['rate_of_profit'] = crisis.get('rate_of_profit', 0.0)
             metrics['department_imbalance'] = crisis.get('department_imbalance', 0.0)
 
         return metrics
@@ -302,7 +303,3 @@ class DataCollector:
             "early_state": 0.45,
         }
         return protection_map.get(regime, 0.5)
-
-
-# Import networkx for graph metrics
-import networkx as nx

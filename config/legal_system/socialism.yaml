@@ -1,0 +1,29 @@
+# 社会主义法律默认参数
+property_law:
+  protection_level: 0.6
+  property_forms:
+    - personal
+    - collective
+    - state
+  private_production: false
+  inheritance_allowed: limited
+
+contract_law:
+  enforcement_level: 0.8
+  recognized_contracts:
+    - labor_assignment
+    - housing
+    - consumption
+  market_exchange: abolished
+
+labor_law:
+  max_work_hours: 8
+  min_wage: 12.0
+  right_to_work: guaranteed
+  child_labor_age: 16
+
+personal_law:
+  equality_before_law: substantive
+  movement_freedom: true
+  marriage_freedom: true
+  class_bias: 0.1

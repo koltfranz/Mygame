@@ -1,0 +1,27 @@
+# 奴隶社会阶级需求
+demands:
+  slave_owner:
+    daily_needs:
+      - commodity: grain
+        quantity: 2
+      - commodity: luxury_goods
+        quantity: 0.2
+      - commodity: olive_oil
+        quantity: 1
+    consumption_level: high
+    survival_threshold: 0.7
+
+  slave:
+    daily_needs:
+      - commodity: grain
+        quantity: 1
+    consumption_level: minimal
+    survival_threshold: 0.3
+
+  artisan:
+    daily_needs:
+      - commodity: grain
+        quantity: 1.5
+      - commodity: bronze_tool
+        quantity: 0.1
+    survival_threshold: 0.5

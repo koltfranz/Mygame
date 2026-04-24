@@ -115,20 +115,18 @@ class SNLTCalculator:
         计算复杂劳动倍加系数 - Calculate complex labor multiplier.
 
         RED LINE: This is NOT a preset constant!
-        It emerges from skill difference competition.
+        The multiplier must NOT be pre-calculated from a formula.
+        It can ONLY emerge post-hoc from market competition across sectors.
+
+        In pre-capitalist stages without cross-sector competition,
+        complex labor reduction has NO social validation and defaults to 1.0.
+        Only capitalist production price equalization can reveal the multiplier.
         """
-        # Simple labor baseline: skill_level = 1.0
-        # Complex labor: skill_level > 1.0
-
-        # Multiplier is proportional to skill difference
-        # But ONLY determined post-hoc through market competition
-        if skill_level <= 1.0:
-            return 1.0
-
-        # Logarithmic scaling to prevent extreme values
-        # 2.0 skill -> ~1.5x, 3.0 skill -> ~2.0x, etc.
-        multiplier = 1.0 + np.log(skill_level)
-        return min(multiplier, 4.0)  # Cap at 4x
+        # A priori calculation is FORBIDDEN by Red Line 6.
+        # The multiplier can only be determined post-hoc via
+        # production price equalization in reproduction.py.
+        # Before capitalist stage, no social mechanism reduces complex to simple.
+        return 1.0
 
     @classmethod
     def get_sector(cls, commodity_type: str) -> str:

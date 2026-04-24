@@ -39,7 +39,9 @@
       "Bash(timeout 30 python src/run.py --demo --interval 50)",
       "Bash(timeout 60 python src/run.py --demo --interval 100)",
       "Bash(timeout 90 python src/run.py --demo --interval 150)",
-      "Bash(timeout 90 python src/run.py --demo --interval 200)"
+      "Bash(timeout 90 python src/run.py --demo --interval 200)",
+      "Bash(python -c \"from src.model.model import CapitalModel; m = CapitalModel\\(\\); print\\('Model created successfully'\\); print\\(f'Population: {m.get_population_count\\(\\)}'\\); print\\(f'Starting stage: {m.social_stage.value}'\\)\")",
+      "Bash([ -f \"d:/code/Mygame/$f\" ])"
     ]
   }
 }

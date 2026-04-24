@@ -1,0 +1,25 @@
+# 原始群阶段参数
+stage: PRIMITIVE_HORDE
+
+population:
+  min: 10
+  max: 30
+  growth_rate: 0.0
+
+time_scale:
+  years_per_step: 100
+
+transition_conditions:
+  min_steps: 50
+  population_threshold: 40
+  language_capacity: 0.3
+
+agent_types:
+  - Forager
+
+social_relation_types:
+  - kinship (low probability)
+
+subsistence:
+  gathering_efficiency: 0.8
+  natural_matter_density: 0.9

@@ -1,0 +1,23 @@
+# 游群初始条件
+population: 20-50
+agents:
+  - type: Forager
+    ratio: 0.7
+    skills:
+      gathering: 1.2
+  - type: Hunter
+    ratio: 0.3
+    skills:
+      hunting: 1.5
+
+social_relations:
+  - type: kinship
+    probability: 0.4
+
+landscape:
+  natural_matter_density: 0.7
+  edible_plants: 6
+  water_sources: 3
+  game_animals: 2
+
+time_scale: 100→10年/步

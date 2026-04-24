@@ -65,7 +65,7 @@ class PlotlyCharts:
     @staticmethod
     def plot_crisis_indicators(crisis_data: Dict) -> go.Figure:
         """绘制危机指标"""
-        indicators = ['rate_of_surplus_value', 'organic_composition', 'profit_rate', 'department_imbalance']
+        indicators = ['rate_of_surplus_value', 'organic_composition', 'rate_of_profit', 'department_imbalance']
         values = [crisis_data.get(ind, 0.0) for ind in indicators]
 
         fig = go.Figure(data=[

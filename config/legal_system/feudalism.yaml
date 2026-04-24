@@ -1,0 +1,27 @@
+# 封建社会法律默认参数
+property_law:
+  protection_level: 0.4
+  serf_land_rights: limited
+  lord_land_rights: absolute
+  inheritance_allowed: true
+  serf_mobility: restricted
+
+contract_law:
+  enforcement_level: 0.3
+  recognized_contracts:
+    - land_lease
+    - labor_service
+    - debt
+  contract_typesNotRecognized:
+    - wage_labor
+
+labor_law:
+  max_work_hours: null
+  corvee_days: 60
+  serf_obligations: labor_rent
+  child_labor_allowed: true
+
+personal_law:
+  serf_personhood: limited
+  serf_movement: restricted
+  serf_marriage: requires_lord_permission

@@ -1,0 +1,41 @@
+# 封建社会阶级需求
+demands:
+  lord:
+    daily_needs:
+      - commodity: grain
+        quantity: 2
+      - commodity: linen
+        quantity: 1
+      - commodity: luxury_goods
+        quantity: 0.1
+    consumption_level: high
+    survival_threshold: 0.8
+
+  serf:
+    daily_needs:
+      - commodity: grain
+        quantity: 1.2
+      - commodity: linen
+        quantity: 0.5
+      - commodity: iron_tool
+        quantity: 0.05
+    rent_payment: 0.25
+    survival_threshold: 0.5
+
+  artisan:
+    daily_needs:
+      - commodity: grain
+        quantity: 1.5
+      - commodity: wool_cloth
+        quantity: 0.8
+      - commodity: iron_tool
+        quantity: 0.1
+    survival_threshold: 0.6
+
+  clergy:
+    daily_needs:
+      - commodity: grain
+        quantity: 1.0
+      - commodity: wine
+        quantity: 0.5
+    survival_threshold: 0.7

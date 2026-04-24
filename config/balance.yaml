@@ -1,0 +1,44 @@
+# 平衡性参数 - Balance Parameters
+# 用于调整模拟器各阶段的社会经济参数
+
+# ===== M1-M3 原始社会参数 =====
+primitive:
+  survival_threshold: 0.3
+  natural_gathering_rate: 0.4
+  poison_detection_threshold: 0.7
+  kinship_edge_probability: 0.3
+
+# ===== M4-M5 阶级社会参数 =====
+slave_society:
+  extraction_rate: 0.8
+  supervision_cost_factor: 0.15
+  resistance_growth_rate: 0.05
+  slave_mortality_rate: 0.02
+
+feudal_society:
+  rent_ratio: 0.25
+  labor_rent_days_per_year: 60
+  corvee_threshold: 0.4
+  serf_mobility: 0.1
+
+# ===== M6-M7 资本主义参数 =====
+capitalist_society:
+  reserve_army_threshold: 0.15
+  minimum_wage: 8.0
+  working_day_hours: 12
+  profit_rate_crisis_level: 0.10
+  snlt_elimination_threshold: 1.5
+  machine_depreciation_rate: 0.01
+
+# ===== M8 社会主义参数 =====
+socialist_society:
+  planning_efficiency: 0.9
+  needs_satisfaction_target: 1.0
+  labor_allocation_weight: 1.0
+
+# ===== 通用参数 =====
+common:
+  max_step_without_production: 10
+  subsistence_decay_rate: 0.05
+  skill_accumulation_rate: 0.02
+  education_cost_per_level: 100.0

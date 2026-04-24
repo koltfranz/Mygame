@@ -1,3 +1,4 @@
 {
-    "dotnet.defaultSolution": "Capital.slnx"
+    "dotnet.defaultSolution": "Capital.slnx",
+    "python-envs.defaultEnvManager": "ms-python.python:system"
 }

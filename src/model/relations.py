@@ -115,15 +115,19 @@ class SocialRelationGraph:
 
         This is a STRUCTURAL determination, not a behavioral one.
         Class position is determined by the dominant relation edge type.
+
+        Edge type priority: WAGE_CONTRACT > FEUDAL_RENT > ENSLAVEMENT >
+                            COLONIAL_EXTRACTION > TRIBUTARY > RESIDENCE >
+                            MILITARY_SERVICE > CLAN > KINSHIP
         """
         relations = self.get_relations(agent_id)
 
         # 资本主义社会关系 (最高优先级)
         if RelationTypes.WAGE_CONTRACT.value in relations:
             if self._has_outgoing_edge_of_type(agent_id, RelationTypes.WAGE_CONTRACT.value):
-                return "capitalist"
-            if self._has_incoming_edge_of_type(agent_id, RelationTypes.WAGE_CONTRACT.value):
                 return "worker"
+            if self._has_incoming_edge_of_type(agent_id, RelationTypes.WAGE_CONTRACT.value):
+                return "capitalist"
 
         # 封建社会关系
         if RelationTypes.FEUDAL_RENT.value in relations:
@@ -140,6 +144,13 @@ class SocialRelationGraph:
             if self._has_incoming_edge_of_type(agent_id, RelationTypes.ENSLAVEMENT.value):
                 return "slave"
 
+        # 殖民榨取关系
+        if RelationTypes.COLONIAL_EXTRACTION.value in relations:
+            if self._has_outgoing_edge_of_type(agent_id, RelationTypes.COLONIAL_EXTRACTION.value):
+                return "colonized"
+            if self._has_incoming_edge_of_type(agent_id, RelationTypes.COLONIAL_EXTRACTION.value):
+                return "colonizer"
+
         # 酋邦/早期国家关系
         if RelationTypes.TRIBUTARY.value in relations:
             if self._has_incoming_edge_of_type(agent_id, RelationTypes.TRIBUTARY.value):
@@ -152,6 +163,17 @@ class SocialRelationGraph:
 
         if RelationTypes.MILITARY_SERVICE.value in relations:
             return "warrior"
+
+        # 培训关系
+        if RelationTypes.TRAINING.value in relations:
+            if self._has_incoming_edge_of_type(agent_id, RelationTypes.TRAINING.value):
+                return "apprentice"
+            if self._has_outgoing_edge_of_type(agent_id, RelationTypes.TRAINING.value):
+                return "trainer"
+
+        # 社会主义计划关系
+        if RelationTypes.PLANNING.value in relations:
+            return "comrade"
 
         # 部落社会关系
         if RelationTypes.CLAN.value in relations:

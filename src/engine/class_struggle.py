@@ -116,7 +116,7 @@ class ClassStruggleEngine:
         oc = crisis.get('organic_composition', 0.0)
 
         # Profit rate trend
-        pr = crisis.get('profit_rate', 0.0)
+        pr = crisis.get('rate_of_profit', 0.0)
 
         # Department imbalance
         imbalance = crisis.get('department_imbalance', 0.0)

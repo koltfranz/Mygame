@@ -1,0 +1,28 @@
+# 奴隶社会法律默认参数
+property_law:
+  protection_level: 0.3
+  slave_property_rights: false
+  slave_owner_rights: absolute
+  inheritance_allowed: true
+  expropriation_allowed: false
+
+contract_law:
+  enforcement_level: 0.2
+  recognized_contracts:
+    - sale_of_slave
+    - debt_bondage
+  contract_types_notRecognized:
+    - wage_labor
+    - freedom_contract
+
+labor_law:
+  max_work_hours: null
+  min_rest: null
+  slave_labor: unrestricted
+  child_labor_allowed: true
+
+personal_law:
+  slave_personhood: false
+  slave_movement: restricted
+  slave_marriage: forbidden
+  slave_torture: legal

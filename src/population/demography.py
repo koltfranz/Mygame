@@ -7,7 +7,7 @@ Handles population dynamics:
 - Population structure
 """
 
-from typing import Dict, List
+from typing import Dict, List, Tuple
 from dataclasses import dataclass
 
 

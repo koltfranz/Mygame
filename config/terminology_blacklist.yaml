@@ -1,0 +1,52 @@
+# 术语红线禁语表 - Terminology Blacklist
+# 严禁在代码中出现以下词汇
+
+forbidden_terms:
+  - term: Utility
+   替代: Use-value matching event
+  - term: Utility maximization
+   替代: Use-value matching event
+  - term: Profit-seeking
+   替代: Self-expansion of capital
+  - term: Wage as reward for labor
+   替代: Price of labor-power
+  - term: Machines create value
+   替代: Machines transfer old value
+  - term: Consumer confidence
+   替代: Reproduction schema imbalance
+  - term: Greedy capitalist
+   替代: Bearer of structural relations
+  - term: Price discovery
+   替代: SNLT post-hoc imposition
+  - term: Human capital
+   替代: Education invested in labor-power
+  - term: Rot
+   替代: Use-value loss
+  - term: Decay
+   替代: Use-value loss
+  - term: Value destruction
+   替代: Value loss (unrealized)
+  - term: Depreciation
+   替代: Physical wear + Moral depreciation
+  - term: Cash
+   替代: Value equivalent
+  - term: Money
+   替代: Value equivalent / Money-form
+  - term: Profit
+   替代: Surplus-value
+  - term: Cost
+   替代: Constant capital consumed + Variable capital advanced
+  - term: Price
+   替代: Exchange-value ratio / Production price
+
+variable_names:
+  money: value_equivalent_held
+  cash: value_equivalent_held
+  price: exchange_ratio
+  cost: constant_capital_consumed
+  wage: variable_capital_advanced
+  profit: surplus_value
+  wealth: capital_stock
+  inventory: commodity_stock_pending
+  hunger: subsistence_deficit
+  health: labor_power_reproduction_level

@@ -1,0 +1,55 @@
+# 封建社会物品类属
+commodities:
+  - name: grain
+    tags: [edible]
+    sector: SECTOR_II
+    snlt_base: 3.5
+    use_value_lifespan: 30
+
+  - name: vegetables
+    tags: [edible]
+    sector: SECTOR_II
+    snlt_base: 2.0
+    use_value_lifespan: 7
+
+  - name: linen
+    tags: [raw_material]
+    sector: SECTOR_I
+    snlt_base: 8.0
+    use_value_lifespan: 50
+
+  - name: wool_cloth
+    tags: [edible]
+    sector: SECTOR_II
+    snlt_base: 12.0
+    use_value_lifespan: 40
+
+  - name: iron_tool
+    tags: [tool]
+    sector: SECTOR_I
+    snlt_base: 8.0
+    use_value_lifespan: 50
+
+  - name: iron_weapon
+    tags: [tool, weapon]
+    sector: SECTOR_I
+    snlt_base: 15.0
+    use_value_lifespan: 40
+
+  - name: horse
+    tags: [tool, weapon]
+    sector: SECTOR_I
+    snlt_base: 30.0
+    use_value_lifespan: 100
+
+  - name: castle
+    tags: [luxury]
+    sector: SECTOR_II
+    snlt_base: 500.0
+    use_value_lifespan: 500
+
+  - name: gold_vessel
+    tags: [luxury]
+    sector: SECTOR_II
+    snlt_base: 50.0
+    use_value_lifespan: 200

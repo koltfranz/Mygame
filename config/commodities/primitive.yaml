@@ -1,0 +1,49 @@
+# 原始社会物品类属
+commodities:
+  - name: berries
+    tags: [edible]
+    sector: SECTOR_II
+    snlt_base: 1.0
+    use_value_lifespan: 3
+
+  - name: roots
+    tags: [edible]
+    sector: SECTOR_II
+    snlt_base: 1.2
+    use_value_lifespan: 5
+
+  - name: nuts
+    tags: [edible]
+    sector: SECTOR_II
+    snlt_base: 0.8
+    use_value_lifespan: 10
+
+  - name: water
+    tags: [edible]
+    sector: SECTOR_II
+    snlt_base: 0.5
+    use_value_lifespan: 1
+
+  - name: meat
+    tags: [edible]
+    sector: SECTOR_II
+    snlt_base: 3.0
+    use_value_lifespan: 2
+
+  - name: stone_tool
+    tags: [tool]
+    sector: SECTOR_I
+    snlt_base: 5.0
+    use_value_lifespan: 20
+
+  - name: spear
+    tags: [tool, weapon]
+    sector: SECTOR_I
+    snlt_base: 8.0
+    use_value_lifespan: 15
+
+  - name: basket
+    tags: [tool]
+    sector: SECTOR_I
+    snlt_base: 4.0
+    use_value_lifespan: 12

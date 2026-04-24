@@ -1,0 +1,43 @@
+# 封建社会初始条件 (西欧)
+population: 1000-5000
+agents:
+  serf:
+    ratio: 0.7
+    skills:
+      farming: 1.2
+    attributes:
+      subsistence_satisfaction: 0.6
+      rent_ratio: 0.25
+  lord:
+    ratio: 0.1
+    skills:
+      management: 1.5
+      warfare: 1.3
+    attributes:
+      land_controlled: 100
+      serfs_controlled: 10
+  artisan:
+    ratio: 0.1
+    skills:
+      crafting: 1.5
+  clergy:
+    ratio: 0.05
+    skills:
+      education: 2.0
+  warrior:
+    ratio: 0.05
+    skills:
+      warfare: 1.8
+
+social_relations:
+  - type: feudal_rent
+    probability: 0.7
+  - type: training
+    probability: 0.1
+  - type: residence
+    probability: 0.2
+
+rent_form: labor → in_kind → monetary
+church_tithes: 0.1
+
+time_scale: 5年/步

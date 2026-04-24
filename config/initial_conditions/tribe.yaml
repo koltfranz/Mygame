@@ -1,0 +1,29 @@
+# 部落初始条件
+population: 100-500
+agents:
+  - type: TribeMember
+    ratio: 0.6
+    skills:
+      crafting: 1.2
+      gathering: 1.0
+  - type: Farmer
+    ratio: 0.3
+    skills:
+      farming: 1.3
+  - type: Forager
+    ratio: 0.1
+
+social_relations:
+  - type: clan
+    probability: 0.5
+  - type: kinship
+    probability: 0.3
+  - type: barter
+    probability: 0.2
+
+landscape:
+  cultivated_land_ratio: 0.2
+  natural_matter_density: 0.5
+  edible_plants: 8
+
+time_scale: 10→1年/步

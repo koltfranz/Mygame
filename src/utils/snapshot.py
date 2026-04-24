@@ -191,7 +191,7 @@ class SnapshotManager:
         # 经济指标
         report_lines.append(f"\n【经济指标】")
         econ = latest.economic_metrics
-        report_lines.append(f"  利润率: {econ.get('profit_rate', 0):.4f}")
+        report_lines.append(f"  利润率: {econ.get('rate_of_profit', 0):.4f}")
         report_lines.append(f"  剩余价值率: {econ.get('rate_of_surplus_value', 0):.4f}")
         report_lines.append(f"  资本有机构成: {econ.get('organic_composition', 0):.4f}")
         report_lines.append(f"  部类偏离度: {econ.get('department_imbalance', 0):.4f}")
@@ -212,9 +212,9 @@ class SnapshotManager:
 
         # 危机预警
         report_lines.append(f"\n【危机预警】")
-        if econ.get('profit_rate', 0) < 0.05:
+        if econ.get('rate_of_profit', 0) < 0.05:
             report_lines.append("  [CRITICAL] 利润率极低，资本主义危机迫在眉睫")
-        elif econ.get('profit_rate', 0) < 0.1:
+        elif econ.get('rate_of_profit', 0) < 0.1:
             report_lines.append("  [WARNING] 利润率偏低")
 
         if cul.get('legitimacy', 1) < 0.3:

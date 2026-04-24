@@ -1,0 +1,21 @@
+# 原始群初始条件
+population: 20-30
+agents:
+  - type: Forager
+    ratio: 1.0
+    skills:
+      gathering: 1.0
+    attributes:
+      subsistence_satisfaction: 0.8
+      labor_power_capacity: 1.0
+
+social_relations:
+  - type: kinship
+    probability: 0.1
+
+landscape:
+  natural_matter_density: 0.8
+  edible_plants: 5
+  water_sources: 2
+
+time_scale: 100年/步

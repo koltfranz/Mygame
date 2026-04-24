@@ -92,7 +92,7 @@ class WarEngine:
         crisis = model.reproduction_engine.crisis_indicators
 
         # Profit rate falling creates war motivation
-        if crisis.get('profit_rate', 0.5) < threshold:
+        if crisis.get('rate_of_profit', 0.5) < threshold:
             # Find agents with high capital (potential war parties)
             potential_aggressors = [
                 a.unique_id for a in model._agent_lookup.values()

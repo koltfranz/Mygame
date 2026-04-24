@@ -45,7 +45,7 @@ class MetricsCalculator:
         return constant_capital / variable_capital
 
     @staticmethod
-    def calculate_profit_rate(surplus: float, constant_capital: float, variable_capital: float) -> float:
+    def calculate_rate_of_profit(surplus: float, constant_capital: float, variable_capital: float) -> float:
         """计算利润率 p' = s/(c+v)"""
         total_capital = constant_capital + variable_capital
         if total_capital <= 0:

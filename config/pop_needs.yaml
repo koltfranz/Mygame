@@ -1,0 +1,100 @@
+# 各阶段需求包配置 - Population Needs by Social Stage
+
+PRIMITIVE_HORDE:
+  needs:
+    - type: edible
+      priority: 1
+      quantity_per_day: 1.0
+    - type: water
+      priority: 1
+      quantity_per_day: 2.0
+  survival_threshold: 0.3
+
+BAND:
+  needs:
+    - type: edible
+      priority: 1
+      quantity_per_day: 1.0
+    - type: shelter
+      priority: 2
+      quantity_per_day: 0.5
+  survival_threshold: 0.4
+
+TRIBE:
+  needs:
+    - type: edible
+      priority: 1
+      quantity_per_day: 1.0
+    - type: tool
+      priority: 2
+      quantity_per_day: 0.2
+    - type: shelter
+      priority: 3
+      quantity_per_day: 0.3
+  survival_threshold: 0.5
+
+SLAVERY_STATE:
+  needs:
+    slave_owner:
+      - type: luxury
+        priority: 1
+        quantity_per_day: 0.5
+      - type: edible
+        priority: 2
+        quantity_per_day: 1.5
+    slave:
+      - type: edible
+        priority: 1
+        quantity_per_day: 0.6
+  survival_threshold: 0.4
+
+FEUDAL_STATE:
+  needs:
+    lord:
+      - type: luxury
+        priority: 1
+        quantity_per_day: 0.3
+      - type: edible
+        priority: 2
+        quantity_per_day: 1.2
+    serf:
+      - type: edible
+        priority: 1
+        quantity_per_day: 0.8
+      - type: tool
+        priority: 2
+        quantity_per_day: 0.1
+  survival_threshold: 0.5
+
+CAPITALIST_STATE:
+  needs:
+    capitalist:
+      - type: luxury
+        priority: 1
+        quantity_per_day: 0.5
+      - type: machine
+        priority: 2
+        quantity_per_day: 0.1
+    worker:
+      - type: edible
+        priority: 1
+        quantity_per_day: 1.0
+      - type: tool
+        priority: 3
+        quantity_per_day: 0.05
+  survival_threshold: 0.5
+  labor_power_value: 8.0
+
+SOCIALIST_STATE:
+  needs:
+    all:
+      - type: edible
+        priority: 1
+        quantity_per_day: 1.0
+      - type: shelter
+        priority: 2
+        quantity_per_day: 0.5
+      - type: education
+        priority: 3
+        quantity_per_day: 0.2
+  survival_threshold: 0.8

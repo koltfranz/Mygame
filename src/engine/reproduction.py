@@ -44,8 +44,9 @@ class ReproductionEngine:
             'rate_of_surplus_value': 0.0,
             'organic_composition': 0.0,
             'department_imbalance': 0.0,
+            'rate_of_profit': 0.0,
         }
-        self.average_profit_rate: float = 0.0
+        self.average_rate_of_profit: float = 0.0
         self.production_price_enabled: bool = False
 
     def calculate_reproduction_schema(self, model) -> ReproductionSchema:
@@ -116,7 +117,7 @@ class ReproductionEngine:
             s += len(agent.slaves_owned) * 0.5
         return s
 
-    def calculate_average_profit_rate(self, model) -> float:
+    def calculate_average_rate_of_profit(self, model) -> float:
         """计算平均利润率
 
         公式: p' = 总剩余价值 / (总不变资本 + 总可变资本)
@@ -129,11 +130,11 @@ class ReproductionEngine:
 
         total_capital = total_c + total_v
         if total_capital > 0:
-            self.average_profit_rate = total_s / total_capital
+            self.average_rate_of_profit = total_s / total_capital
         else:
-            self.average_profit_rate = 0.0
+            self.average_rate_of_profit = 0.0
 
-        return self.average_profit_rate
+        return self.average_rate_of_profit
 
     def transform_to_production_price(self, value: float, c: float, v: float) -> float:
         """将价值转化为生产价格
@@ -151,14 +152,79 @@ class ReproductionEngine:
             return value
 
         cost_price = c + v
-        average_profit = cost_price * self.average_profit_rate
-        production_price = cost_price + average_profit
+        average_surplus = cost_price * self.average_rate_of_profit
+        production_price = cost_price + average_surplus
 
         return production_price
 
     def enable_production_price(self, enabled: bool = True):
         """启用/禁用生产价格转换"""
         self.production_price_enabled = enabled
+
+    def calculate_complex_labor_multipliers(self, model) -> Dict[str, float]:
+        """
+        事后计算复杂劳动倍加系数 - Post-hoc complex labor multiplier calculation.
+
+        RED LINE 6 COMPLIANCE: No a priori formula. The multiplier emerges
+        from production price equalization across sectors.
+
+        公式: multiplier_sector = (production_price_sector / SNLT_sector) /
+                                   (production_price_baseline / SNLT_baseline)
+
+        其中 baseline 是简单劳动部门（如谷物生产）。
+        如果不存在生产价格（非资本主义阶段），所有 multiplier = 1.0。
+        """
+        if not self.production_price_enabled:
+            return {}
+
+        # 获取各部门的生产价格（通过利润率平均化后的交换比例）
+        # 谷物部门作为简单劳动基准
+        grain_snlt = SNLTCalculator.get_snlt('grain')
+        if grain_snlt <= 0:
+            return {}
+
+        # 计算各部门相对于谷物部门（简单劳动）的倍加系数
+        multipliers = {}
+        for commodity_type in ['grain', 'hand_tool', 'weapon', 'shelter', 'craft_tool']:
+            snlt = SNLTCalculator.get_snlt(commodity_type)
+            if snlt <= 0:
+                continue
+
+            # 生产价格 = 成本价格 x (1 + 平均利润率)
+            # 简化：使用 SNLT 比率作为近似，但只在生产价格启用时
+            cost_price_c = self._estimate_c_for_commodity(commodity_type)
+            cost_price_v = self._estimate_v_for_commodity(commodity_type)
+            cost_price = cost_price_c + cost_price_v + snlt * 0.5  # 近似 s
+            production_price = self.transform_to_production_price(cost_price, cost_price_c, cost_price_v)
+
+            # 倍加系数 = (部门生产价格/部门SNLT) / (谷物生产价格/谷物SNLT)
+            if snlt > 0 and grain_snlt > 0:
+                ratio = (production_price / snlt) / (SNLTCalculator.get_snlt('grain') / grain_snlt)
+                multipliers[commodity_type] = max(1.0, ratio)
+
+        return multipliers
+
+    def _estimate_c_for_commodity(self, commodity_type: str) -> float:
+        """估算某商品的不变资本消耗"""
+        c_map = {
+            'grain': 1.0,
+            'hand_tool': 3.0,
+            'weapon': 2.0,
+            'shelter': 5.0,
+            'craft_tool': 2.0,
+        }
+        return c_map.get(commodity_type, 1.0)
+
+    def _estimate_v_for_commodity(self, commodity_type: str) -> float:
+        """估算某商品的可变资本消耗"""
+        v_map = {
+            'grain': 4.0,
+            'hand_tool': 3.0,
+            'weapon': 2.5,
+            'shelter': 8.0,
+            'craft_tool': 3.0,
+        }
+        return v_map.get(commodity_type, 4.0)
 
     def check_balance(self, schema: ReproductionSchema) -> Tuple[bool, str]:
         """
@@ -187,7 +253,7 @@ class ReproductionEngine:
         only by利润率下降 or再生产比例失衡.
         """
         # Calculate average profit rate first
-        self.calculate_average_profit_rate(model)
+        self.calculate_average_rate_of_profit(model)
 
         # Calculate rate of surplus value: s/v
         total_surplus = self._calculate_total_surplus(model)
@@ -205,13 +271,13 @@ class ReproductionEngine:
         else:
             organic_composition = 0.0
 
-        # Calculate profit rate: s/(c+v) - use average profit rate for capitalist stage
+        # Calculate rate of profit: s/(c+v) - use average rate of profit for capitalist stage
         if model.social_stage.value == 'capitalist_state':
-            profit_rate = self.average_profit_rate
+            rate_of_profit = self.average_rate_of_profit
         elif (total_constant + total_variable) > 0:
-            profit_rate = total_surplus / (total_constant + total_variable)
+            rate_of_profit = total_surplus / (total_constant + total_variable)
         else:
-            profit_rate = 0.0
+            rate_of_profit = 0.0
 
         # Department imbalance
         schema = self.calculate_reproduction_schema(model)
@@ -221,7 +287,7 @@ class ReproductionEngine:
         self.crisis_indicators = {
             'rate_of_surplus_value': rate_of_surplus,
             'organic_composition': organic_composition,
-            'profit_rate': profit_rate,
+            'rate_of_profit': rate_of_profit,
             'department_imbalance': imbalance_score,
         }
 

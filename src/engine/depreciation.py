@@ -29,7 +29,9 @@ class DepreciationEngine:
 
         Returns the value transferred to the products in this production cycle.
 
-        value_transferred = original_value × effective_wear_rate
+        Following the outline spec:
+        value_transferred = original_value * effective_wear - transferred_value_accumulated
+        where effective_wear = 1 - (remaining_use_value_ratio * moral_factor)
         """
         if not machine.physical_props.get('means_of_production'):
             return 0.0
@@ -52,22 +54,25 @@ class DepreciationEngine:
         else:
             moral_factor = 1.0
 
-        # Clamp moral factor
-        machine.moral_depreciation_factor = max(0.01, min(1.0, moral_factor))
+        # Clamp moral factor (outline spec: no lower bound except 0.01)
+        machine.moral_depreciation_factor = max(0.01, moral_factor)
 
         # Update remaining use value ratio
         machine.remaining_use_value_ratio -= total_wear
 
-        # Calculate effective wear (combining physical and moral)
+        # Calculate effective wear (combining physical and moral) - following outline spec
+        # effective_wear = 1 - (remaining_use_value_ratio * moral_factor)
         effective_wear = 1.0 - (machine.remaining_use_value_ratio * machine.moral_depreciation_factor)
 
-        # Calculate value transferred
+        # Calculate value transferred per outline spec:
+        # transferred = original_value * effective_wear - transferred_value_accumulated
         if machine.original_value > 0:
-            value_transferred = machine.original_value * min(effective_wear, 0.5)
-            machine.transferred_value_accumulated += value_transferred
+            value_transferred = machine.original_value * effective_wear - machine.transferred_value_accumulated
         else:
-            # If no recorded original value, use labor time
-            value_transferred = machine.individual_labor_embodied * min(effective_wear, 0.1)
+            value_transferred = machine.individual_labor_embodied * effective_wear - machine.transferred_value_accumulated
+
+        # Accumulate transferred value
+        machine.transferred_value_accumulated += max(0.0, value_transferred)
 
         # Check for scrappage
         if machine.remaining_use_value_ratio <= 0 or machine.moral_depreciation_factor <= 0.01:
@@ -87,7 +92,8 @@ class DepreciationEngine:
 
     def _scrapp_machine(self, machine: Matter):
         """报废生产资料"""
-        machine.state = machine.state.STATE_USELESS
+        from src.model.ontology import MatterState
+        machine.state = MatterState.STATE_USELESS
         machine.individual_labor_embodied = 0.0
 
         # Emit scrappage event

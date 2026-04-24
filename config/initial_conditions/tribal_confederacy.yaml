@@ -1,0 +1,30 @@
+# 部落联盟初始条件
+population: 500-2000
+agents:
+  - type: TribeMember
+    ratio: 0.5
+  - type: Farmer
+    ratio: 0.35
+  - type: Warrior
+    ratio: 0.1
+    skills:
+      warfare: 1.5
+  - type: Chief
+    ratio: 0.05
+    skills:
+      leadership: 2.0
+
+social_relations:
+  - type: clan
+    probability: 0.3
+  - type: military_alliance
+    probability: 0.4
+  - type: tributary
+    probability: 0.2
+  - type: barter
+    probability: 0.1
+
+surplus_ratio: 0.15
+war_frequency: 0.3
+
+time_scale: 1年/步

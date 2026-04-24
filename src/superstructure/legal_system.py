@@ -1,15 +1,23 @@
 """
-Legal System - 法律体系
+Legal System - 法律体系总控
 
-Includes:
-- Property law (所有权法)
-- Contract law (契约法)
-- Labor law (劳动法)
-- Personal law (人身法)
+法律体系包含:
+- Property Law (所有权法)
+- Contract Law (契约法)
+- Personal Law (人身法)
+- Labor Law (劳动法)
+
+法律不是中立的——它反映并维护阶级统治。
+法律形式将不平等各方在形式上视为平等。
 """
 
-from typing import Dict, List
+from typing import Dict
 from dataclasses import dataclass
+
+from src.superstructure.property_law import PropertyLaw
+from src.superstructure.contract_law import ContractLaw
+from src.superstructure.personal_law import PersonalLaw
+from src.superstructure.labor_law import LaborLaw
 
 
 @dataclass
@@ -33,9 +41,10 @@ class LegalSystem:
     def __init__(self):
         self.current_mode = "primitive"  # primitive -> slave -> feudal -> capitalist -> socialist
 
-        # Legal protections (vary by mode of production)
+        # Legal subsystems
         self.property_law = PropertyLaw()
         self.contract_law = ContractLaw()
+        self.personal_law = PersonalLaw()
         self.labor_law = LaborLaw()
 
         # Class bias in legal system
@@ -52,28 +61,59 @@ class LegalSystem:
             self.property_law.protection_level = 0.1
             self.contract_law.enforcement_level = 0.1
             self.labor_law.max_work_hours = None
+            self.labor_law.min_wage = None
             self.class_bias = 0.0
+
         elif self.current_mode == "slave":
             self.property_law.protection_level = 0.3
             self.contract_law.enforcement_level = 0.2
+            self.contract_law.recognized_contracts = ["sale_of_slave", "debt_bondage"]
             self.labor_law.max_work_hours = None
+            self.labor_law.child_labor_allowed = True
+            self.personal_law.personhood_recognition = 0.1
+            self.personal_law.movement_freedom = 0.1
             self.class_bias = 0.7  # Strong bias toward slave owners
+
         elif self.current_mode == "feudal":
             self.property_law.protection_level = 0.4
             self.contract_law.enforcement_level = 0.3
+            self.contract_law.recognized_contracts = ["land_lease", "labor_service", "debt", "apprenticeship"]
             self.labor_law.max_work_hours = None
+            self.labor_law.min_wage = None
+            self.labor_law.child_labor_allowed = True
+            self.personal_law.personhood_recognition = 0.4
+            self.personal_law.movement_freedom = 0.2
             self.class_bias = 0.6
+
         elif self.current_mode == "capitalist":
             self.property_law.protection_level = 0.8
             self.contract_law.enforcement_level = 0.7
+            self.contract_law.recognized_contracts = ["wage_labor", "sale", "lease", "credit", "insurance"]
+            self.contract_law.contract_freedom = 0.8
             self.labor_law.max_work_hours = 12
             self.labor_law.min_wage = 8.0
+            self.labor_law.child_labor_allowed = False
+            self.labor_law.child_labor_age = 12
+            self.labor_law.strike_right = 0.3
+            self.labor_law.union_right = 0.3
+            self.personal_law.personhood_recognition = 0.9
+            self.personal_law.movement_freedom = 0.9
+            self.personal_law.marriage_freedom = 0.8
             self.class_bias = 0.4  # Formal equality masks real inequality
+
         elif self.current_mode == "socialist":
             self.property_law.protection_level = 0.6
             self.contract_law.enforcement_level = 0.8
+            self.contract_law.recognized_contracts = ["labor_assignment", "housing", "consumption"]
             self.labor_law.max_work_hours = 8
             self.labor_law.min_wage = 12.0
+            self.labor_law.child_labor_allowed = False
+            self.labor_law.child_labor_age = 16
+            self.labor_law.strike_right = 0.1
+            self.labor_law.union_right = 0.8
+            self.personal_law.personhood_recognition = 1.0
+            self.personal_law.movement_freedom = 1.0
+            self.personal_law.marriage_freedom = 1.0
             self.class_bias = 0.1
 
     def apply_class_bias(self, case_type: str, plaintiff_class: str, defendant_class: str) -> float:
@@ -87,7 +127,7 @@ class LegalSystem:
 
         class_rank = {
             "capitalist": 5, "lord": 4, "slave_owner": 3,
-            "worker": 2, "serf": 1, "slave": 0, "forager": 0
+            "artisan": 2, "worker": 2, "serf": 1, "slave": 0, "forager": 0
         }
 
         plaintiff_rank = class_rank.get(plaintiff_class, 0)
@@ -105,34 +145,17 @@ class LegalSystem:
         return LegalFormMetrics(
             property_rights_protection=self.property_law.protection_level,
             contract_enforcement=self.contract_law.enforcement_level,
-            labor_rights_protection=self.labor_law.protection_level if hasattr(self.labor_law, 'protection_level') else 0.0,
-            personal_rights_protection=0.5 + 0.3 * (1.0 - self.class_bias),
+            labor_rights_protection=self.labor_law.protection_level,
+            personal_rights_protection=self.personal_law.personhood_recognition,
             formal_equality_index=1.0 - self.class_bias * 0.5
         )
 
-
-class PropertyLaw:
-    """所有权法"""
-
-    def __init__(self):
-        self.protection_level = 0.1  # How strongly property rights are protected
-        self.expropriation_allowed = True  # Can property be forcibly taken?
-        self.inheritance_allowed = True
-
-
-class ContractLaw:
-    """契约法"""
-
-    def __init__(self):
-        self.enforcement_level = 0.1  # How well contracts are enforced
-        self.contracts_recognized = ["informal"]  # Types of contracts recognized
-
-
-class LaborLaw:
-    """劳动法"""
-
-    def __init__(self):
-        self.max_work_hours = None  # None = no limit
-        self.min_wage = None  # None = no minimum wage
-        self.protection_level = 0.0
-        self.child_labor_allowed = True
+    def get_legal_system_info(self) -> Dict:
+        """获取法律体系信息"""
+        return {
+            "mode": self.current_mode,
+            "class_bias": self.class_bias,
+            "property_protection": self.property_law.protection_level,
+            "contract_enforcement": self.contract_law.enforcement_level,
+            "formal_equality": 1.0 - self.class_bias * 0.5
+        }

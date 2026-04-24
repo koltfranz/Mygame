@@ -1,0 +1,42 @@
+# 资本主义阶级需求
+demands:
+  capitalist:
+    daily_needs:
+      - commodity: grain
+        quantity: 2
+      - commodity: luxury_goods
+        quantity: 0.5
+      - commodity: machine
+        quantity: 0.01
+    surplus_extraction: 0.8
+    accumulation_rate: 0.2
+    survival_threshold: 0.9
+
+  worker:
+    daily_needs:
+      - commodity: grain
+        quantity: 1.0
+      - commodity: cloth
+        quantity: 0.3
+    labor_power_value: 8.0
+    wage_rate: 8.0
+    survival_threshold: 0.5
+
+  landlord:
+    daily_needs:
+      - commodity: grain
+        quantity: 1.5
+      - commodity: luxury_goods
+        quantity: 0.2
+    rent_rate: 0.1
+    survival_threshold: 0.8
+
+  artisan:
+    daily_needs:
+      - commodity: grain
+        quantity: 1.2
+      - commodity: iron
+        quantity: 0.5
+      - commodity: cloth
+        quantity: 0.4
+    survival_threshold: 0.6

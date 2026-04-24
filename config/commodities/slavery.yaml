@@ -1,0 +1,43 @@
+# 奴隶社会物品类属
+commodities:
+  - name: grain
+    tags: [edible]
+    sector: SECTOR_II
+    snlt_base: 4.0
+    use_value_lifespan: 30
+
+  - name: olive_oil
+    tags: [edible]
+    sector: SECTOR_II
+    snlt_base: 6.0
+    use_value_lifespan: 60
+
+  - name: wine
+    tags: [edible, luxury]
+    sector: SECTOR_II
+    snlt_base: 8.0
+    use_value_lifespan: 90
+
+  - name: bronze_tool
+    tags: [tool]
+    sector: SECTOR_I
+    snlt_base: 10.0
+    use_value_lifespan: 40
+
+  - name: loom
+    tags: [tool]
+    sector: SECTOR_I
+    snlt_base: 15.0
+    use_value_lifespan: 60
+
+  - name: chariot
+    tags: [tool, weapon]
+    sector: SECTOR_I
+    snlt_base: 25.0
+    use_value_lifespan: 30
+
+  - name: luxury_pottery
+    tags: [luxury]
+    sector: SECTOR_II
+    snlt_base: 12.0
+    use_value_lifespan: 100

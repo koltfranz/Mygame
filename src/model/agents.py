@@ -64,12 +64,15 @@ class Human(Agent):
         return False
 
     def gather_naturally(self, resource_patch: 'LandscapeCell'):
-        """从自然界采集"""
-        for matter in resource_patch.natural_matter:
+        """从自然界采集，持续采集直到满足度达标"""
+        for matter in resource_patch.natural_matter[:]:
+            if self.subsistence_satisfaction >= 0.8:
+                break
             if matter.state == MatterState.STATE_PURE_USE_VALUE:
                 if matter.matches_need("edible"):
                     if self.consume_matter(matter):
-                        break
+                        # 从地块自然物中移除已消费的物品
+                        resource_patch.natural_matter.remove(matter)
 
     def add_commodity(self, matter: Matter):
         """添加商品到库存"""
@@ -118,6 +121,9 @@ class TribeMember(Human):
         # 尝试生产
         self._attempt_production(model)
 
+        # 消费自己生产的粮食（如果有的话）
+        self._consume_produced_food()
+
         # 物物交换
         if hasattr(model, 'social_graph'):
             self._attempt_barter(model)
@@ -138,6 +144,17 @@ class TribeMember(Human):
                     self.add_commodity(tool)
                     # 更新SNLT
                     SNLTCalculator.update_snlt('hand_tool', tool.individual_labor_embodied)
+
+    def _consume_produced_food(self):
+        """消费自己生产的粮食"""
+        # 找到可作为食物的产品（grain）
+        edible_items = [m for m in self.commodity_inventory[:]
+                       if m.matches_need('edible')]
+        for matter in edible_items[:]:
+            if self.subsistence_satisfaction >= 0.9:
+                break
+            if self.consume_matter(matter):
+                self.commodity_inventory.remove(matter)
 
     def _attempt_barter(self, model):
         """尝试物物交换"""
@@ -460,25 +477,48 @@ class Lord(Human):
 
 
 class Worker(Human):
-    """资本主义社会的工人"""
+    """资本主义社会的工人
+
+    RED LINE: Behavior is driven by WageContractEdge in SocialRelationGraph,
+    NOT by "greed" or "utility maximization".
+    """
 
     def __init__(self, model):
         super().__init__(model)
-        self.wage_rate = 8.0  # 劳动力价值（日工资）
-        self.employed_by: Optional[int] = None  # 雇主ID
+        # wage_rate is dynamically determined by labor-power value,
+        # NOT a fixed constant (see calculate_labor_power_value)
+        self.wage_rate = 0.0  # 劳动力价值（日工资），由WageContractEdge动态决定
+        self.employed_by: Optional[int] = None  # 雇主ID（从WageContractEdge推断）
 
     def step(self, model):
-        """工人的行为"""
+        """工人的行为 - 由 WageContractEdge 结构性决定"""
         self.labor_power_capacity = min(1.0, self.labor_power_capacity + 0.2)
 
-        # 被迫出卖劳动力
-        if self.employed_by:
-            employer = model.get_agent(self.employed_by)
-            if employer:
-                # 劳动完成后获得工资
-                self.labor_power_capacity -= 0.8
-                self.value_equivalent_held += self.wage_rate
-                self.subsistence_satisfaction = min(1.0, self.subsistence_satisfaction + 0.3)
+        # 从社会关系图遍历 WageContractEdge 决定行为
+        wage_edges = self._get_wage_contracts(model)
+        if wage_edges:
+            for edge in wage_edges:
+                edge_data = edge[2] if len(edge) > 2 else {}
+                capitalist_id = edge[1]  # target of outgoing edge
+                self.employed_by = capitalist_id
+
+                # Wage rate is dynamically computed from labor-power value + class struggle
+                employer = model.get_agent(capitalist_id)
+                if employer:
+                    from src.engine.labor_value import SNLTCalculator
+                    computed_wage = SNLTCalculator.calculate_labor_power_value(self)
+
+                    # Add class struggle premium/discount
+                    if hasattr(employer, 'workers_employed'):
+                        struggle_level = len(employer.workers_employed) / max(len(model._agent_lookup), 1)
+                        computed_wage *= (1.0 + struggle_level * 0.1)
+
+                    self.wage_rate = max(4.0, computed_wage)
+
+                    # 劳动完成后获得工资
+                    self.labor_power_capacity -= 0.8
+                    self.value_equivalent_held += self.wage_rate
+                    self.subsistence_satisfaction = min(1.0, self.subsistence_satisfaction + 0.3)
 
         # 消费
         self._consume_as_worker()
@@ -486,9 +526,23 @@ class Worker(Human):
         if self.subsistence_satisfaction <= 0:
             model.remove_agent(self)
 
+    def _get_wage_contracts(self, model) -> list:
+        """从社会关系图获取 WageContract 边"""
+        from src.model.relations import RelationTypes
+
+        if self.unique_id not in model.social_graph.graph:
+            return []
+
+        edges = []
+        # Worker has OUTGOING WageContract edges (worker -> capitalist)
+        for u, v, data in model.social_graph.graph.out_edges(self.unique_id, data=True):
+            if data.get('relation_type') == RelationTypes.WAGE_CONTRACT.value:
+                edges.append((u, v, data))
+        return edges
+
     def _produce_labor(self, model):
         """为资本家生产（用于五步时序第一阶段）"""
-        if self.employed_by and self.labor_power_capacity > 0.3:
+        if self._get_wage_contracts(model) and self.labor_power_capacity > 0.3:
             # 生产商品
             product = self.production.produce(self, 'craft_tool', model)
             if product:
@@ -504,69 +558,88 @@ class Worker(Human):
             matter.state = MatterState.STATE_COMMODITY
             matter.physical_props = {
                 'name': 'grain',
-                'tags': [ItemTags.EDIBLE]
+                'edible': True,
             }
-            self.commodity_inventory.append(matter)
             self.value_equivalent_held -= 8.0
 
-            # 消费
+            # 消费（不经过库存，因为立即被消费）
             self.consume_matter(matter)
 
 
 class Capitalist(Human):
-    """资本主义社会的资本家"""
+    """资本主义社会的资本家
+
+    RED LINE: Behavior is determined by WageContractEdge structure,
+    NOT by "greed" or "profit maximization".
+    Capital extraction rate is structurally determined by class struggle,
+    not a personal choice.
+    """
 
     def __init__(self, model):
         super().__init__(model)
         self.skill_type = 'management'
         self.skill_level = 2.0
-        self.capital_stock = 100.0  # 资本存量
+        # value_equivalent_held tracks total value controlled (c + v + s)
+        # This is NOT "money" - it's the social validation of value
         self.workers_employed: List[int] = []
         self.machines_owned: List[Matter] = []
 
     def step(self, model):
-        """资本家的行为 - 盲目积累"""
-        # 消费剩余价值
-        self._consume_surplus()
+        """资本家的行为 - 由 WageContractEdge 结构性决定"""
+        # 0. 从社会关系图同步劳动者列表
+        self._sync_workers_from_graph(model)
 
-        # 积累资本（扩大再生产）
-        self._accumulate_capital(model)
+        # 1. 占有剩余价值（通过WageContractEdge结构性榨取）
+        self._extract_surplus_value(model)
 
-        # 支付工资
-        self._pay_wages(model)
+        # 2. 积累不变资本（购买机器，转移价值）
+        self._accumulate_constant_capital(model)
 
-    def _consume_surplus(self):
-        """消费剩余价值"""
-        if self.capital_stock > 50.0:
-            matter = Matter()
-            matter.state = MatterState.STATE_COMMODITY
-            matter.physical_props = {
-                'name': 'luxury_goods',
-                'tags': [ItemTags.LUXURY]
-            }
-            self.commodity_inventory.append(matter)
+    def _sync_workers_from_graph(self, model):
+        """从社会关系图同步工人列表 - 行为由边决定"""
+        from src.model.relations import RelationTypes
 
-    def _accumulate_capital(self, model):
-        """积累资本"""
-        # 购买机器（不变资本c）
-        if self.capital_stock > 30.0:
+        if self.unique_id not in model.social_graph.graph:
+            return
+
+        self.workers_employed = []
+        # Capitalist has INCOMING WageContract edges (worker -> capitalist)
+        for u, v, data in model.social_graph.graph.in_edges(self.unique_id, data=True):
+            if data.get('relation_type') == RelationTypes.WAGE_CONTRACT.value:
+                self.workers_employed.append(u)
+
+    def _extract_surplus_value(self, model):
+        """榨取剩余价值 - 结构性占有"""
+        for worker_id in self.workers_employed[:]:
+            worker = model.get_agent(worker_id)
+            if not worker or not isinstance(worker, Worker):
+                continue
+
+            # Labor-power is consumed, value is created
+            if hasattr(worker, 'commodity_inventory'):
+                for commodity in worker.commodity_inventory[:]:
+                    # Capitalist appropriates the product
+                    worker.commodity_inventory.remove(commodity)
+                    self.commodity_inventory.append(commodity)
+
+    def _accumulate_constant_capital(self, model):
+        """积累不变资本 - 机器只能转移价值(c)，不能创造新价值"""
+        if self.value_equivalent_held > 30.0:
             machine = Matter()
             machine.state = MatterState.STATE_COMMODITY
             machine.physical_props = {
                 'name': 'machine',
-                'tags': [ItemTags.TOOL],
+                'tool': True,
                 'means_of_production': True,
-                'quantity': 1.0
+                'quantity': 1.0,
             }
             machine.individual_labor_embodied = 20.0
+            # Set depreciation attributes per outline spec
+            machine.physical_wear_rate = 0.01
+            machine.idle_wear_rate = 0.001
+            machine.remaining_use_value_ratio = 1.0
+            machine.moral_depreciation_factor = 1.0
+            machine.original_value = 20.0
+            machine.original_snlt_at_production = 20.0
             self.machines_owned.append(machine)
-            self.capital_stock -= 30.0
-
-    def _pay_wages(self, model):
-        """支付工资"""
-        for worker_id in self.workers_employed[:]:
-            worker = model.get_agent(worker_id)
-            if worker and isinstance(worker, Worker):
-                if self.capital_stock >= worker.wage_rate:
-                    self.capital_stock -= worker.wage_rate
-                    worker.value_equivalent_held += worker.wage_rate
+            self.value_equivalent_held -= 20.0

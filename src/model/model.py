@@ -12,8 +12,12 @@ from src.model.agents import Forager, TribeMember, Farmer, Slave, SlaveOwner, Se
 from src.model.relations import SocialRelationGraph, RelationTypes
 from src.model.resources import Landscape
 from src.model.social_stage import SocialStage, TransitionEngine
+from src.model.ontology import Matter, MatterState
 from src.analysis.data_collector import DataCollector
 from src.engine.reproduction import ReproductionEngine
+from src.engine.value_form_router import ImpedanceRouter
+from src.engine.class_struggle import ClassStruggleEngine
+from src.population.demography import DemographyEngine
 from src.superstructure.state_apparatus import StateApparatus
 from src.superstructure.political_regime import PoliticalRegime
 from src.superstructure.ideology_manager import IdeologyManager
@@ -54,6 +58,9 @@ class CapitalModel(Model):
 
         # Reproduction engine (for crisis detection)
         self.reproduction_engine = ReproductionEngine()
+
+        # Demography engine (for population dynamics)
+        self.demography_engine = DemographyEngine()
 
         # Political subsystems
         self.state_apparatus = StateApparatus()
@@ -225,6 +232,9 @@ class CapitalModel(Model):
             for agent in list(self.agents):
                 agent.step(self)
 
+        # 3.5. Update population (births and deaths)
+        self._update_population()
+
         # 4. Landscape regenerates
         self.landscape.regenerate()
 
@@ -241,41 +251,73 @@ class CapitalModel(Model):
             self.snapshot_manager.add_snapshot(snap)
 
     def _step_capitalist_staged(self):
-        """资本主义五步时序步进"""
+        """资本主义五步时序步进
+
+        严格按照开发大纲附录 E 的时序：
+        1. 生产(磨损转移)
+        2. SNLT计算(触发精神磨损)
+        3. 交换(价值实现)
+        4. 阶级博弈
+        5. 破产淘汰
+        """
         from src.engine.labor_value import SNLTCalculator
-        from src.engine.value_form_router import ImpedanceRouter
         from src.engine.class_struggle import ClassStruggleEngine
 
-        # 第一阶段：生产期
+        # 第一阶段：生产期 + 磨损转移
         for agent in list(self.agents):
-            if hasattr(agent, 'employed_by') and agent.employed_by:
+            # Worker produces (driven by WageContractEdge)
+            if isinstance(agent, Worker):
                 agent._produce_labor(model=self)
 
-        # 第二阶段：SNLT 事后裁决
+            # Capitalist's machines undergo wear
+            if isinstance(agent, Capitalist):
+                from src.engine.depreciation import DepreciationEngine
+                de = DepreciationEngine()
+                for machine in agent.machines_owned[:]:
+                    de.apply_wear_and_transfer_value(machine, production_quantity=1.0)
+                    # Scrapped machines are removed
+                    if machine.state == MatterState.STATE_USELESS:
+                        agent.machines_owned.remove(machine)
+
+        # 第二阶段：SNLT 事后裁决（触发精神磨损）
         for agent in list(self.agents):
             for commodity in agent.commodity_inventory[:]:
                 if hasattr(commodity, 'exchange_status') and commodity.exchange_status == 'Pending':
-                    sector = getattr(commodity, 'sector', 'craft_tool')
-                    snlt = SNLTCalculator.get_snlt(sector)
+                    sector = Matter.determine_sector(commodity)
+                    snlt = SNLTCalculator.get_snlt(commodity.physical_props.get('name', 'craft_tool'))
                     if hasattr(commodity, 'individual_labor_embodied'):
+                        # 个别劳动时间 > SNLT * 1.5 的会被淘汰
                         if commodity.individual_labor_embodied > snlt * 1.5:
                             commodity.physical_props['snlt_eliminated'] = True
+                            commodity.state = MatterState.STATE_USELESS
 
-        # 第三阶段：阻抗路由与强制交割
+        # 第三阶段：交换与价值实现（通过阻抗路由）
         router = ImpedanceRouter(self.social_graph)
         for agent in list(self.agents):
             for commodity in agent.commodity_inventory[:]:
-                if hasattr(commodity, 'exchange_status') and commodity.exchange_status == 'Pending':
-                    route = router.calculate_route(commodity, self)
-                    if route and route.get('target'):
-                        self._force_delivery(agent, commodity, route['target'])
+                if commodity.state == MatterState.STATE_COMMODITY and commodity.exchange_status == 'Pending':
+                    # 查找交换伙伴（简化：通过社会关系图）
+                    if self.social_graph.graph.has_node(agent.unique_id):
+                        try:
+                            neighbors = list(self.social_graph.graph.predecessors(agent.unique_id))
+                            for neighbor_id in neighbors:
+                                neighbor = self.get_agent(neighbor_id)
+                                if neighbor and isinstance(neighbor, (Worker, Capitalist)):
+                                    self._force_delivery(agent, commodity, neighbor_id)
+                                    router.record_exchange(
+                                        agent.unique_id, neighbor_id,
+                                        commodity.physical_props.get('name', 'unknown'), 1.0
+                                    )
+                                    break
+                        except Exception:
+                            pass
 
         # 第四阶段：阶级博弈期
         struggle_engine = ClassStruggleEngine()
         for agent in list(self.agents):
-            if hasattr(agent, 'workers_employed'):
+            if isinstance(agent, Capitalist):
                 struggle_engine.consolidate_wage_struggle(agent, self)
-            if hasattr(agent, 'lord_id'):
+            if isinstance(agent, Serf):
                 struggle_engine.consolidate_rent_struggle(agent, self)
 
         # 第五阶段：SNLT断头台 - 淘汰落后者
@@ -595,3 +637,58 @@ class CapitalModel(Model):
         if not self._agent_lookup:
             return 0.0
         return sum(a.subsistence_satisfaction for a in self._agent_lookup.values()) / len(self._agent_lookup)
+
+    def _update_population(self):
+        """更新人口 - 处理出生和死亡"""
+        agents = list(self._agent_lookup.values())
+        births, deaths = self.demography_engine.calculate_population_change(agents, self)
+
+        # 创建新生儿
+        for _ in range(births):
+            self._create_newborn()
+
+        # 记录死亡（死亡由agent.step()中的remove_agent处理）
+
+    def _create_newborn(self):
+        """创建新生儿 - 根据当前社会阶段创建合适的Agent类型"""
+        from src.model.agents import Forager, TribeMember, Slave, Serf, Worker
+
+        # 根据当前阶段决定创建哪种Agent
+        stage = self.social_stage
+
+        if stage == SocialStage.PRIMITIVE_HORDE:
+            agent = Forager(self)
+        elif stage == SocialStage.BAND:
+            # BAND阶段：社会组织更复杂，新生儿为TribeMember
+            agent = TribeMember(self)
+        elif stage == SocialStage.TRIBE:
+            # 部落阶段：开始农业生产，新生儿为农民
+            agent = Farmer(self)
+        elif stage == SocialStage.TRIBAL_CONFEDERACY:
+            agent = Farmer(self)
+        elif stage == SocialStage.CHIEFDOM:
+            agent = Farmer(self)
+        elif stage == SocialStage.EARLY_STATE:
+            agent = Farmer(self)
+        elif stage == SocialStage.SLAVERY_STATE:
+            # 奴隶社会：按比例创建奴隶主和奴隶
+            if self.random.random() < 0.7:
+                agent = Slave(self)
+            else:
+                agent = Slave(self)  # 简化：暂时都创建Slave
+        elif stage == SocialStage.FEUDAL_STATE:
+            agent = Serf(self)
+        elif stage == SocialStage.CAPITALIST_STATE:
+            agent = Worker(self)
+        elif stage == SocialStage.SOCIALIST_STATE:
+            agent = Worker(self)
+        else:
+            agent = Forager(self)
+
+        # 放置新Agent
+        pos = (self.random.random() * self.space.width,
+               self.random.random() * self.space.height)
+        self.space.place_agent(agent, pos)
+        agent.pos = pos
+        self.social_graph.add_agent(agent.unique_id)
+        self._agent_lookup[agent.unique_id] = agent

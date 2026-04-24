@@ -1,0 +1,27 @@
+# 资本主义法律默认参数
+property_law:
+  protection_level: 0.8
+  private_property_rights: absolute
+  inheritance_allowed: true
+  expropriation_allowed: false
+
+contract_law:
+  enforcement_level: 0.7
+  recognized_contracts:
+    - wage_labor
+    - sale
+    - lease
+    - credit
+  freedom_of_contract: formal
+
+labor_law:
+  max_work_hours: 12
+  min_wage: 8.0
+  child_labor_age: 12
+  worker_organization: restricted
+
+personal_law:
+  equal_before_law: formal
+  movement_restriction: none
+  marriage_freedom: true
+  class_bias: 0.4

@@ -21,6 +21,10 @@ class ImpedanceRouter:
 
     Determines exchange paths and which commodity emerges as universal equivalent.
     Based on social relation graph topology and exchange history.
+
+    RED LINE: Universal equivalent (money) EMERGES from network topology,
+    NOT from any intrinsic property of the commodity.
+    Detection is based on in-degree centrality > 80%.
     """
 
     def __init__(self, social_graph):
@@ -29,6 +33,10 @@ class ImpedanceRouter:
         self.value_form_stage = "barter"  # barter -> expanded -> universal -> money
         self.universal_equivalent: Optional[str] = None
         self.exchange_ratios: Dict[str, Dict[str, float]] = {}  # commodity1 -> commodity2 -> ratio
+        # 入度中心性跟踪 - 用于一般等价物涌现检测
+        self._in_degree_history: Dict[str, List[float]] = {}  # commodity -> [centrality_values]
+        self._consecutive_high_centrality: Dict[str, int] = {}  # commodity -> consecutive_steps
+        self._centrality_threshold: float = 0.8  # 入度中心性 > 80% 触发货币涌现
 
     def record_exchange(self, from_agent: int, to_agent: int, commodity_type: str, quantity: float):
         """记录交换"""
@@ -73,17 +81,37 @@ class ImpedanceRouter:
         2. Expanded: multiple commodities in exchange
         3. Universal: one commodity becomes general equivalent
         4. Money: one commodity becomes universal equivalent (money commodity)
+
+        RED LINE: Universal equivalent detection uses in-degree centrality > 80%.
+        No a priori designation of "money commodity" - it EMERGES from exchange topology.
         """
         unique_commodities = set(c for _, _, c, _ in self.exchange_history)
         exchange_pairs = len(self.exchange_history)
 
-        if len(unique_commodities) == 1 and exchange_pairs > 20:
-            self.value_form_stage = "money"
-            self.universal_equivalent = list(unique_commodities)[0]
-        elif len(unique_commodities) > 5 and exchange_pairs > 10:
+        # 1. Calculate in-degree centrality for each commodity from exchange history
+        #    A commodity's centrality = how many distinct agents hold it / total agents
+        self._calculate_in_degree_centrality()
+
+        # 2. Check for universal equivalent emergence via centrality > 80%
+        for commodity, centrality in self._in_degree_history.items():
+            if not centrality:
+                continue
+            latest_centrality = centrality[-1]
+            if latest_centrality >= self._centrality_threshold:
+                self._consecutive_high_centrality[commodity] = \
+                    self._consecutive_high_centrality.get(commodity, 0) + 1
+                # 持续高于阈值才认定为一般等价物
+                if self._consecutive_high_centrality[commodity] >= 3:
+                    self.value_form_stage = "money"
+                    self.universal_equivalent = commodity
+                    return self.value_form_stage
+            else:
+                self._consecutive_high_centrality[commodity] = 0
+
+        # 3. Fallback: determine stage from exchange volume
+        if len(unique_commodities) > 5 and exchange_pairs > 10:
             self.value_form_stage = "universal"
-            # Most frequently exchanged commodity becomes general equivalent
-            self._elect_universal_equivalent()
+            self._elect_universal_equivalent_by_volume()
         elif len(unique_commodities) > 2:
             self.value_form_stage = "expanded"
         else:
@@ -91,8 +119,38 @@ class ImpedanceRouter:
 
         return self.value_form_stage
 
-    def _elect_universal_equivalent(self):
-        """选举一般等价物"""
+    def _calculate_in_degree_centrality(self):
+        """
+        计算各商品类型的入度中心性。
+
+        入度中心性 = 持有该商品的agent数量 / 所有参与交换的agent数量。
+        当某商品的入度中心性 > 80%，它已成为事实上的一般等价物。
+        """
+        if not self.exchange_history:
+            return
+
+        agents_in_exchange = set()
+        commodity_holders: Dict[str, set] = {}
+        for from_agent, to_agent, c, _ in self.exchange_history:
+            agents_in_exchange.add(from_agent)
+            agents_in_exchange.add(to_agent)
+            if c not in commodity_holders:
+                commodity_holders[c] = set()
+            commodity_holders[c].add(from_agent)
+            commodity_holders[c].add(to_agent)
+
+        total_agents = len(agents_in_exchange)
+        if total_agents == 0:
+            return
+
+        for commodity, holders in commodity_holders.items():
+            centrality = len(holders) / total_agents
+            if commodity not in self._in_degree_history:
+                self._in_degree_history[commodity] = []
+            self._in_degree_history[commodity].append(centrality)
+
+    def _elect_universal_equivalent_by_volume(self):
+        """选举一般等价物（按交换量）"""
         commodity_counts: Dict[str, int] = {}
         for _, _, c, _ in self.exchange_history:
             commodity_counts[c] = commodity_counts.get(c, 0) + 1
